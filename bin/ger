@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+/* eslint-disable no-undef */
+
+const path = require("path");
+const { spawnSync } = require("child_process");
+
+const projectDir = path.resolve(__dirname, "..");
+const tsNodePath = path.resolve(projectDir, "node_modules", ".bin", "ts-node");
+const gerTsPath = path.resolve(projectDir, "src", "ger.ts");
+
+const args = process.argv.slice(2);
+
+const result = spawnSync(tsNodePath, [gerTsPath, ...args], {
+  stdio: "inherit",
+  shell: true,
+});
+
+process.exit(result.status);
