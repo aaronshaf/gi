@@ -12,6 +12,7 @@ program
   .command("branch")
   .description("Get a list of local branches with Gerrit info")
   .option("-v", "Show extra information, i.e. approvals")
+  .option("-d", "Prompt to delete already-merged branches")
   .action((
     _program: any,
   ) => {
