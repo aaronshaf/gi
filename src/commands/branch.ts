@@ -39,7 +39,9 @@ export function branch({
     const changeId = localBranchDataMap[name].changeId;
     if (changeId) {
       const gerritData = gerritOutputByChangeId[changeId];
-      return gerritData?.status === "MERGED";
+      return (
+        gerritData?.status === "MERGED" || gerritData?.status === "ABANDONED"
+      );
     }
     return false;
   });
@@ -100,19 +102,21 @@ function output(
         .filter(Boolean)
         .map((str) => `[${str}]`) as string[];
 
-      const approvals = (gerritData.currentPatchSet.approvals || []).map((a) => {
-        let description = a.description;
-        if (a.type === "SUBM" && !description) {
-          description = "Submitted";
+      const approvals = (gerritData.currentPatchSet.approvals || []).map(
+        (a) => {
+          let description = a.description;
+          if (a.type === "SUBM" && !description) {
+            description = "Submitted";
+          }
+          return isVerbose
+            ? `${description || a.type}: ${normalizeValue(
+                a.value
+              )} (${normalizeApproverName(a.by.name)})`
+            : `${abbreviateApproverDescription(
+                description || a.type
+              )}${normalizeValue(a.value)}`;
         }
-        return isVerbose
-          ? `${description || a.type}: ${normalizeValue(
-              a.value
-            )} (${normalizeApproverName(a.by.name)})`
-          : `${abbreviateApproverDescription(
-              description || a.type
-            )}${normalizeValue(a.value)}`;
-      });
+      );
 
       const approvalText = approvals.join(isVerbose ? "\n" : ", ");
 
@@ -122,7 +126,9 @@ function output(
 
       if (isVerbose) {
         table.push([
-          `${bold(localBranch)}${topicText}\n${localBranchDataMap[localBranch].shortHash}`,
+          `${bold(localBranch)}${topicText}\n${
+            localBranchDataMap[localBranch].shortHash
+          }`,
           `${labels.join("\n")}`,
           `${subject}\n${yellow(gerritData.url.replace("https://", ""))}`,
           approvalText,
@@ -163,11 +169,21 @@ async function promptForMergedBranchDeletion(mergedBranches: string[]) {
     input: process.stdin,
     output: process.stdout,
   });
+  
+  if (mergedBranches.length > 0) {
+    console.log('')
+    console.log(
+      `The following ${bold(String(mergedBranches.length))} local branches are merged or abandoned:`
+    );
+    for (const mergedLocalBranch of mergedBranches) {
+      console.log(`  ${bold(mergedLocalBranch)}`);
+    }
+  }
 
   for (const mergedLocalBranch of mergedBranches) {
     const answer: string = await new Promise((resolve) => {
       readline.question(
-        `Delete merged local branch ${bold(mergedLocalBranch)}? (y/n) `,
+        `Delete local branch ${bold(mergedLocalBranch)}? (y/n) `,
         resolve
       );
     });

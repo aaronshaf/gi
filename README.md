@@ -23,6 +23,6 @@ ger branch
 # list branches with expanded gerrit info
 ger branch -v
 
-# prompt to delete already-merged branches
+# prompt to delete branches of submitted or abandoned changes
 ger branch -d
 ```
