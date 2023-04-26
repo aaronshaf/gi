@@ -12,9 +12,9 @@ export function bold(text: string) {
   return `\x1b[1m${text}\x1b[0m`;
 }
 
-// grey background
+// grey with transparent background
 export function grey(text: string) {
-  return `\x1b[47m\x1b[30m${text}\x1b[0m`;
+  return `\x1b[37m\x1b[40m${text}\x1b[0m`;
 }
 
 // brown with transparent background

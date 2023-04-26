@@ -116,10 +116,14 @@ function output(
 
       const approvalText = approvals.join(isVerbose ? "\n" : ", ");
 
+      const topicText = gerritData.topic
+        ? ` ${grey(`(${gerritData.topic})`)}`
+        : "";
+
       if (isVerbose) {
         table.push([
-          `${bold(localBranch)}\n${localBranchDataMap[localBranch].shortHash}`,
-          labels.join(" "),
+          `${bold(localBranch)}${topicText}\n${localBranchDataMap[localBranch].shortHash}`,
+          `${labels.join(" ")}`,
           `${subject}\n${yellow(gerritData.url.replace("https://", ""))}`,
           approvalText,
         ]);

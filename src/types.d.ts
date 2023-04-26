@@ -24,6 +24,7 @@ export type GerritData = {
   id: string;
   status: 'MERGED' | 'ABANDONED';
   subject: string;
+  topic?: string;
   url: string;
   wip: boolean;
   number: number
