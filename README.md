@@ -4,6 +4,16 @@
 npm i -g @aaronshaf/ger
 ```
 
+## Assumption: gerrit in known_hosts
+
+```
+# ~/.ssh/known_hosts
+Host gerrit
+  HostName gerrit.[your domain].com
+  User [your username]
+  Port 29418
+```
+
 ## Usage
 
 ```bash
