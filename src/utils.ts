@@ -13,7 +13,7 @@ export function bold(text: string) {
 }
 
 export function grey(text: string) {
-  return `\x1b[37m\x1b[40m${text}\x1b[0m`;
+  return `\x1b[90m${text}\x1b[0m`;
 }
 
 export function darkBrown(text: string) {

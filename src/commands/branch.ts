@@ -123,7 +123,7 @@ function output(
       if (isVerbose) {
         table.push([
           `${bold(localBranch)}${topicText}\n${localBranchDataMap[localBranch].shortHash}`,
-          `${labels.join(" ")}`,
+          `${labels.join("\n")}`,
           `${subject}\n${yellow(gerritData.url.replace("https://", ""))}`,
           approvalText,
         ]);
