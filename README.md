@@ -1,3 +1,9 @@
+## Install
+
+```bash
+npm i -g @aaronshaf/ger
+```
+
 ## Usage
 
 ```bash
