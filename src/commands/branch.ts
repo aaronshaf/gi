@@ -100,7 +100,7 @@ function output(
         .filter(Boolean)
         .map((str) => `[${str}]`) as string[];
 
-      const approvals = gerritData.currentPatchSet.approvals.map((a) => {
+      const approvals = (gerritData.currentPatchSet.approvals || []).map((a) => {
         let description = a.description;
         if (a.type === "SUBM" && !description) {
           description = "Submitted";

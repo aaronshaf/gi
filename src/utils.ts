@@ -12,22 +12,19 @@ export function bold(text: string) {
   return `\x1b[1m${text}\x1b[0m`;
 }
 
-// grey with transparent background
 export function grey(text: string) {
   return `\x1b[37m\x1b[40m${text}\x1b[0m`;
 }
 
-// brown with transparent background
 export function darkBrown(text: string) {
   // return `\x1b[43m\x1b[30m${text}\x1b[0m`;
   return `\x1b[33m${text}\x1b[0m`;
 }
 
 export function green(text: string) {
-  return `\x1b[42m\x1b[30m${text}\x1b[0m`;
+  return `\x1b[32m${text}\x1b[0m`;
 }
 
-// yellow text with transparent background
 export function yellow(text: string) {
   // return `\x1b[33m\x1b[40m${text}\x1b[0m`;
   return `\x1b[33m${text}\x1b[0m`;

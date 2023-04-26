@@ -19,7 +19,7 @@ export type GerritApproval = {
 
 export type GerritData = {
   currentPatchSet: {
-    approvals: GerritApproval[]
+    approvals?: GerritApproval[]
   }
   id: string;
   status: 'MERGED' | 'ABANDONED';
