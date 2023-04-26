@@ -63,7 +63,7 @@ export function getGerritData(changeIds: string[]) {
   }
 
   // Run the gerrit query command
-  const gerrit_output = execSync(
+  const gerritData = execSync(
     `ssh gerrit "gerrit query --current-patch-set --format=JSON '${query}'"`
   )
     .toString()
@@ -71,7 +71,7 @@ export function getGerritData(changeIds: string[]) {
     .split("\n")
     .map((line) => JSON.parse(line) as GerritData);
 
-  return gerrit_output.reduce<GerritDataMap>((acc, change) => {
+  return gerritData.reduce<GerritDataMap>((acc, change) => {
     return {
       ...acc,
       [change.id]: change,
