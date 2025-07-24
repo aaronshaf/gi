@@ -1,5 +1,4 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+# Husky pre-commit hook
 
 # Run lint-staged
 bun lint-staged

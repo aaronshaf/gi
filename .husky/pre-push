@@ -1,5 +1,4 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+# Husky pre-push hook
 
 # Type checking
 echo "Running type check..."
@@ -7,7 +6,7 @@ bun tsc --noEmit
 
 # Run all tests with coverage and check thresholds
 echo "Running tests with coverage check..."
-bun test:coverage:check
+bun run test:coverage:check
 
 # Run linters
 echo "Running linters..."
