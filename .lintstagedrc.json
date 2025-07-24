@@ -1,0 +1,8 @@
+{
+  "*.ts": [
+    "bun tsc --noEmit",
+    "bun oxlint",
+    "bun biome check --write",
+    "bun test --coverage --passWithNoTests"
+  ]
+}

@@ -1,0 +1,13 @@
+id: no-as-casting
+language: typescript
+rule:
+  any:
+    - pattern: $EXPR as $TYPE
+  not:
+    any:
+      - pattern: $EXPR as const
+      - pattern: $EXPR as unknown
+      - pattern: ($EXPR as unknown) as $TYPE2
+      - pattern: $EXPR as unknown as $TYPE2
+message: Type casting with 'as' is not allowed. Use proper typing or 'as unknown' if necessary.
+severity: error

@@ -1,0 +1,84 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Run weekly on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-dependencies:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Update dependencies
+        run: |
+          # Update all dependencies
+          bun update
+          
+          # Check if there are any changes
+          if git diff --quiet bun.lockb package.json; then
+            echo "No dependency updates available"
+            echo "has_updates=false" >> $GITHUB_ENV
+          else
+            echo "Dependencies have been updated"
+            echo "has_updates=true" >> $GITHUB_ENV
+          fi
+
+      - name: Run tests after update
+        if: env.has_updates == 'true'
+        run: |
+          bun install --frozen-lockfile
+          bun run check:all
+
+      - name: Create Pull Request
+        if: env.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update dependencies'
+          title: 'chore: automated dependency updates'
+          body: |
+            ## Automated Dependency Updates
+            
+            This PR contains automated dependency updates.
+            
+            ### Changes
+            - Updated dependencies to their latest versions
+            - All tests and checks are passing
+            
+            ### Review Checklist
+            - [ ] Check for any breaking changes in the updated dependencies
+            - [ ] Verify that all tests are still passing
+            - [ ] Review any new security advisories
+            
+            🤖 This PR was created automatically by GitHub Actions.
+          branch: chore/update-dependencies
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
