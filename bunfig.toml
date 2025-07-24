@@ -2,7 +2,7 @@
 # Test configuration
 coverage = true
 coverageThreshold = { line = 80.0, function = 80.0, statement = 80.0, branch = 80.0 }
-coverageReporter = ["text", "lcov", "html"]
+coverageReporter = ["text", "lcov"]
 coverageSkipTestFiles = true
 # Exclude patterns from coverage
 coverageExclude = ["node_modules", "dist", "tmp", "tests/mocks", "**/*.d.ts"]
