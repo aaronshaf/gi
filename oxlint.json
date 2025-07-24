@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "no-implicit-any": "error",
+    "no-explicit-any": "error",
+    "no-unused-vars": "error",
+    "no-console": "warn",
+    "no-debugger": "error",
+    "prefer-const": "error",
+    "no-var": "error",
+    "eqeqeq": "error",
+    "no-eval": "error"
+  },
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    "tmp",
+    "**/*.js",
+    "**/*.jsx",
+    "**/*.tsx",
+    "coverage",
+    "*.config.js",
+    "*.config.ts"
+  ]
+}
