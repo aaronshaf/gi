@@ -19,6 +19,7 @@
     "ink-testing-library": "^4.0.0",
     "lint-staged": "^16.1.2",
     "oxlint": "^1.8.0",
+    "react-devtools-core": "^6.1.5",
     "typescript": "^5.8.3"
   },
   "peerDependencies": {
@@ -40,7 +41,7 @@
   "scripts": {
     "prepare": "husky",
     "dev": "bun run src/cli/index.ts",
-    "build": "bun build src/cli/index.ts --outdir=dist --target=bun",
+    "build": "bun build src/cli/index.ts --outdir=dist --target=bun --external=keytar --external=react-devtools-core",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:coverage:check": "bun scripts/check-coverage.ts",
