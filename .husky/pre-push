@@ -24,4 +24,5 @@ echo "Checking for banned patterns..."
 
 # Security audit
 echo "Running security audit..."
-bun audit --audit-level moderate
+# Temporarily disabled - bun audit command not found
+# bun audit --audit-level moderate
