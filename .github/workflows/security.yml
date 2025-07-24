@@ -1,0 +1,96 @@
+name: Weekly Security Audit
+
+on:
+  schedule:
+    # Run every Monday at 8:00 AM UTC
+    - cron: '0 8 * * 1'
+  workflow_dispatch: # Allow manual triggering
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.2.17"
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run security audit
+        run: |
+          echo "Running security audit..."
+          bun audit --audit-level moderate > audit-report.txt 2>&1 || true
+          
+          # Display the audit results
+          echo "📊 Security Audit Results:"
+          cat audit-report.txt
+          
+          # Check if there are any vulnerabilities
+          if grep -q "vulnerabilities" audit-report.txt; then
+            echo "⚠️ Security vulnerabilities found. Please review the audit report."
+            # Don't fail the workflow, just report the findings
+            exit 0
+          else
+            echo "✅ No security vulnerabilities found."
+          fi
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-audit-report
+          path: audit-report.txt
+          retention-days: 30
+
+  dependency-updates:
+    name: Check for Dependency Updates
+    runs-on: ubuntu-latest
+    needs: security-audit
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.2.17"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check for outdated packages
+        run: |
+          echo "Checking for outdated packages..."
+          bun outdated > outdated-report.txt 2>&1 || true
+          
+          # Display the results
+          echo "📦 Outdated Dependencies:"
+          cat outdated-report.txt
+
+      - name: Upload outdated report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: outdated-dependencies-report
+          path: outdated-report.txt
+          retention-days: 30

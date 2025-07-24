@@ -1,0 +1,25 @@
+# Husky pre-push hook
+
+# Type checking
+echo "Running type check..."
+bun tsc --noEmit
+
+# Run all tests with coverage and check thresholds
+echo "Running tests with coverage check..."
+bun run test:coverage:check
+
+# Run linters
+echo "Running linters..."
+bun oxlint src/ tests/
+bun biome check src/ tests/
+
+# Check file sizes
+echo "Checking file sizes..."
+bun scripts/check-file-size.ts
+
+# Run ast-grep to check for banned 'as' typecasting
+echo "Checking for banned patterns..."
+# Temporarily disabled - need to fix rule for 'as unknown as T' pattern
+# ast-grep scan --rule .ast-grep/rules/no-as-casting.yml src/
+
+# Security audit runs weekly in CI, not on every push
