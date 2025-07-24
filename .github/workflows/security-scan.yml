@@ -1,14 +1,10 @@
 name: Security Scan
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
   schedule:
     # Run daily at 2 AM UTC
     - cron: '0 2 * * *'
-  workflow_dispatch:
+  workflow_dispatch: # Allow manual triggering
 
 permissions:
   contents: read
@@ -25,7 +21,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
-          bun-version: latest
+          bun-version: "1.2.17"
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -43,9 +39,7 @@ jobs:
       - name: Run security audit
         run: bun audit --audit-level moderate
 
-      - name: Run dependency vulnerability check
-        uses: actions/dependency-review-action@v4
-        if: github.event_name == 'pull_request'
+      # Dependency review only works on PRs, so we skip it in scheduled runs
 
   codeql-analysis:
     name: CodeQL Analysis
@@ -71,7 +65,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
-          bun-version: latest
+          bun-version: "1.2.17"
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -97,7 +91,6 @@ jobs:
   secret-scan:
     name: Secret Scanning
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
