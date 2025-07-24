@@ -104,7 +104,7 @@ const makeRequest = <T = unknown>(
     const cleanJson = text.replace(/^\)\]\}'\n?/, '')
 
     if (!cleanJson.trim()) {
-      return null as T
+      return null as unknown as T
     }
 
     const parsed = yield* Effect.try({
@@ -118,7 +118,7 @@ const makeRequest = <T = unknown>(
       )
     }
 
-    return parsed as T
+    return parsed as unknown as T
   })
 
 export const GerritApiServiceLive: Layer.Layer<

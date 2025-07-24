@@ -118,7 +118,7 @@ program
       },
     ) => {
       const diffOptions = {
-        format: options.format as 'unified' | 'json' | 'files',
+        format: options.format as unknown as 'unified' | 'json' | 'files',
         patchset: options.patchset,
         file: options.file,
         filesOnly: options.filesOnly,

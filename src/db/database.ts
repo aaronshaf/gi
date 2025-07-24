@@ -144,7 +144,7 @@ export const DatabaseServiceLive = Layer.effect(
             return null
           }
 
-          return mapRowToChange(row as ChangeRow)
+          return mapRowToChange(row as unknown as ChangeRow)
         },
         catch: () => new DatabaseError({ message: 'Failed to get change from database' }),
       })
@@ -213,7 +213,7 @@ export const DatabaseServiceLive = Layer.effect(
 
           const stmt = db.query(sql)
           const rows = stmt.all(...params)
-          return rows.map((row) => mapRowToChange(row as ChangeRow))
+          return rows.map((row) => mapRowToChange(row as unknown as ChangeRow))
         },
         catch: () => new DatabaseError({ message: 'Failed to search changes in database' }),
       })
@@ -269,7 +269,9 @@ export const DatabaseServiceLive = Layer.effect(
           `)
           const now = Math.floor(Date.now() / 1000)
           const row = query.get(key, now)
-          return row && typeof row === 'object' && 'value' in row ? (row.value as string) : null
+          return row && typeof row === 'object' && 'value' in row
+            ? (row.value as unknown as string)
+            : null
         },
         catch: () => new DatabaseError({ message: 'Failed to get cache metadata' }),
       })
