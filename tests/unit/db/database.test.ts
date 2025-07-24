@@ -144,25 +144,25 @@ describe('DatabaseService', () => {
     })
 
     test('should search changes by status', async () => {
-      const mockChange = generateMockChange({ 
+      const mockChange = generateMockChange({
         status: 'NEW',
         id: 'unique-search-test',
-        change_id: 'I_unique_search_test'
+        change_id: 'I_unique_search_test',
       })
-      
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const service = yield* DatabaseService
-          
+
           // Save a change first
           yield* service.saveChange(mockChange)
-          
+
           // Search for NEW changes
           const results = yield* service.searchChanges({ status: 'NEW' })
-          
+
           // Should contain at least our change
           expect(results.length).toBeGreaterThanOrEqual(1)
-          const ourChange = results.find(c => c.id === 'unique-search-test')
+          const ourChange = results.find((c) => c.id === 'unique-search-test')
           expect(ourChange).toBeDefined()
           expect(ourChange?.status).toBe('NEW')
         }).pipe(Effect.provide(DatabaseServiceLive)),
@@ -171,17 +171,17 @@ describe('DatabaseService', () => {
 
     test('should search changes by project', async () => {
       const mockChange = generateMockChange({ project: 'test-project' })
-      
+
       await Effect.runPromise(
         Effect.gen(function* () {
           const service = yield* DatabaseService
-          
+
           // Save a change first
           yield* service.saveChange(mockChange)
-          
+
           // Search for changes in test-project
           const results = yield* service.searchChanges({ project: 'test-project' })
-          
+
           expect(results).toHaveLength(1)
           expect(results[0].project).toBe('test-project')
         }).pipe(Effect.provide(DatabaseServiceLive)),
@@ -190,25 +190,25 @@ describe('DatabaseService', () => {
 
     test('should limit search results', async () => {
       // Save multiple changes
-      const changes = Array.from({ length: 5 }, (_, i) => 
-        generateMockChange({ 
+      const changes = Array.from({ length: 5 }, (_, i) =>
+        generateMockChange({
           id: `change-${i}`,
           change_id: `I${i}473b95934b5732ac55d26311a706c9c2bde9940`,
-          number: 12345 + i 
-        })
+          number: 12345 + i,
+        }),
       )
 
       await Effect.runPromise(
         Effect.gen(function* () {
           const service = yield* DatabaseService
-          
+
           for (const change of changes) {
             yield* service.saveChange(change)
           }
-          
+
           // Search with limit
           const results = yield* service.searchChanges({ limit: 3 })
-          
+
           expect(results.length).toBeLessThanOrEqual(3)
         }).pipe(Effect.provide(DatabaseServiceLive)),
       )
@@ -216,14 +216,14 @@ describe('DatabaseService', () => {
 
     test('should check if change is stale', async () => {
       const mockChange = generateMockChange()
-      
+
       const isStale = await Effect.runPromise(
         Effect.gen(function* () {
           const service = yield* DatabaseService
-          
+
           // Save a change first
           yield* service.saveChange(mockChange)
-          
+
           // Check if change is stale (should be false for fresh change)
           return yield* service.isChangeStale(mockChange.change_id)
         }).pipe(Effect.provide(DatabaseServiceLive)),
