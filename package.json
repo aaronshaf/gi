@@ -1,0 +1,53 @@
+{
+  "name": "gi",
+  "version": "0.1.0",
+  "module": "index.ts",
+  "type": "module",
+  "bin": {
+    "gi": "./src/cli/index.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.1.2",
+    "@effect/cluster": "^0.46.0",
+    "@effect/rpc": "^0.68.0",
+    "@effect/sql": "^0.44.0",
+    "@types/node": "^24.1.0",
+    "@types/react": "^19.1.8",
+    "ast-grep": "^0.1.0",
+    "bun-types": "^1.2.19",
+    "husky": "^9.1.7",
+    "ink-testing-library": "^4.0.0",
+    "lint-staged": "^16.1.2",
+    "oxlint": "^1.8.0",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.90.0",
+    "@effect/platform-node": "^0.94.0",
+    "@effect/schema": "^0.75.5",
+    "commander": "^14.0.0",
+    "effect": "^3.17.1",
+    "i18next": "^25.3.2",
+    "ink": "^6.0.1",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "keytar": "^7.9.0",
+    "react": "^19.1.0"
+  },
+  "scripts": {
+    "prepare": "husky",
+    "dev": "bun run src/cli/index.ts",
+    "build": "bun build src/cli/index.ts --outdir=dist --target=bun",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "test:coverage:check": "bun scripts/check-coverage.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src/ tests/",
+    "format": "biome format --write src/ tests/",
+    "format:check": "biome check src/ tests/",
+    "check:all": "bun run typecheck && bun run lint && bun run format:check && bun run test:coverage"
+  }
+}

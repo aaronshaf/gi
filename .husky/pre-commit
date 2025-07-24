@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run lint-staged
+bun lint-staged
+
+# Check file sizes
+bun scripts/check-file-size.ts
+
+# Run ast-grep to check for banned 'as' typecasting
+ast-grep scan --rule .ast-grep/rules/no-as-casting.yml src/
+
+# Check test coverage
+echo "Checking test coverage..."
+bun run test:coverage:check

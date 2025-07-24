@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Type checking
+echo "Running type check..."
+bun tsc --noEmit
+
+# Run all tests with coverage and check thresholds
+echo "Running tests with coverage check..."
+bun test:coverage:check
+
+# Run linters
+echo "Running linters..."
+bun oxlint src/ tests/
+bun biome check src/ tests/
+
+# Check file sizes
+echo "Checking file sizes..."
+bun scripts/check-file-size.ts
+
+# Run ast-grep to check for banned 'as' typecasting
+echo "Checking for banned patterns..."
+ast-grep scan --rule .ast-grep/rules/no-as-casting.yml src/
+
+# Security audit
+echo "Running security audit..."
+bun audit --audit-level moderate
