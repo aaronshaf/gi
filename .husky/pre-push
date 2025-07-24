@@ -22,7 +22,4 @@ echo "Checking for banned patterns..."
 # Temporarily disabled - need to fix rule for 'as unknown as T' pattern
 # ast-grep scan --rule .ast-grep/rules/no-as-casting.yml src/
 
-# Security audit
-echo "Running security audit..."
-# Temporarily disabled - bun audit command not found
-# bun audit --audit-level moderate
+# Security audit runs weekly in CI, not on every push
