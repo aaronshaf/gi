@@ -124,9 +124,11 @@ describe('Mock Generator', () => {
       const diff1 = generateMockFileDiff()
       const diff2 = generateMockFileDiff()
 
-      expect(diff1.change_type).toBe(diff2.change_type)
+      expect(diff1.change_type).toBe('MODIFIED')
+      expect(diff2.change_type).toBe('MODIFIED')
       expect(diff1.content.length).toBe(diff2.content.length)
-      expect(diff1.diff_header).toEqual(diff2.diff_header)
+      expect(diff1.diff_header).toEqual(['--- a/src/main.ts', '+++ b/src/main.ts'])
+      expect(diff2.diff_header).toEqual(['--- a/src/main.ts', '+++ b/src/main.ts'])
     })
   })
 
