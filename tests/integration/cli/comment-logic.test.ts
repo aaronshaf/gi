@@ -169,7 +169,7 @@ describe('gi comment - Command Logic Tests', () => {
       const originalFetch = global.fetch
       global.fetch = mock(async () => {
         return new Response('{"message":"Permission denied"}', { status: 403 })
-      })
+      }) as any
       
       const result = await simulateCommentCommand('12345', undefined, 'This should fail')
       
@@ -183,7 +183,7 @@ describe('gi comment - Command Logic Tests', () => {
       const originalFetch = global.fetch
       global.fetch = mock(async () => {
         throw new Error('Network error')
-      })
+      }) as any
       
       const result = await simulateCommentCommand('12345', undefined, 'Network test')
       

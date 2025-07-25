@@ -101,16 +101,16 @@ describe('gi comment command', () => {
 
   describe('Non-interactive mode (-m flag)', () => {
     test('should format console output correctly', () => {
-      const mockLog = mock(() => {})
-      const mockError = mock(() => {})
+      const mockLog = mock((message: string) => {})
+      const mockError = mock((message: string, error?: string) => {})
       
       // Simulate successful comment posting
       mockLog('Posting comment...')
       mockLog('✓ Comment posted successfully!')
       
       expect(mockLog).toHaveBeenCalledTimes(2)
-      expect(mockLog.mock.calls[0][0]).toBe('Posting comment...')
-      expect(mockLog.mock.calls[1][0]).toBe('✓ Comment posted successfully!')
+      expect(mockLog.mock.calls[0]).toEqual(['Posting comment...'])
+      expect(mockLog.mock.calls[1]).toEqual(['✓ Comment posted successfully!'])
       
       // Simulate error case
       mockError('✗ Failed to post comment:', 'Network error')
