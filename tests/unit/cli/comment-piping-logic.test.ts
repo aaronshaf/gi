@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, mock } from 'bun:test'
+import { beforeAll, describe, expect, mock, test } from 'bun:test'
 import { setupFetchMock } from '../../mocks/fetch-mock'
 
 describe('Comment Piping Logic', () => {
@@ -54,41 +54,41 @@ describe('Comment Piping Logic', () => {
     test('should detect piped input correctly', () => {
       // Simulate TTY detection
       const isPiped = (isTTY: boolean | undefined) => !isTTY
-      
-      expect(isPiped(false)).toBe(true)  // Piped
-      expect(isPiped(true)).toBe(false)  // Interactive terminal
-      expect(isPiped(undefined)).toBe(true)  // Treat undefined as piped
+
+      expect(isPiped(false)).toBe(true) // Piped
+      expect(isPiped(true)).toBe(false) // Interactive terminal
+      expect(isPiped(undefined)).toBe(true) // Treat undefined as piped
     })
   })
 
   describe('API request validation', () => {
     test('should send correct payload structure', async () => {
       let capturedRequest: any = null
-      
+
       const mockFetch = mock(async (url: string, options?: RequestInit) => {
         capturedRequest = {
           url,
           method: options?.method,
           headers: options?.headers,
-          body: options?.body ? JSON.parse(options.body as string) : null
+          body: options?.body ? JSON.parse(options.body as string) : null,
         }
         return new Response(`)]}'\n{"labels":{},"ready":true}`, { status: 200 })
       })
-      
+
       const originalFetch = global.fetch
       global.fetch = mockFetch as any
-      
+
       try {
         // Simulate posting a comment
         await fetch('https://gerrit.example.com/a/changes/12345/revisions/current/review', {
           method: 'POST',
           headers: {
-            'Authorization': `Basic ${btoa('user:pass')}`,
-            'Content-Type': 'application/json'
+            Authorization: `Basic ${btoa('user:pass')}`,
+            'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ message: 'Test comment' })
+          body: JSON.stringify({ message: 'Test comment' }),
         })
-        
+
         expect(capturedRequest).toBeDefined()
         expect(capturedRequest.url).toContain('/revisions/current/review')
         expect(capturedRequest.method).toBe('POST')
@@ -104,7 +104,7 @@ describe('Comment Piping Logic', () => {
       const isValidMessage = (message?: string): boolean => {
         return !!message && message.trim().length > 0
       }
-      
+
       expect(isValidMessage('Valid message')).toBe(true)
       expect(isValidMessage('  Trimmed  ')).toBe(true)
       expect(isValidMessage('')).toBe(false)
@@ -129,9 +129,9 @@ describe('Comment Piping Logic', () => {
         { input: 'Line1\nLine2', expected: 'Line1\nLine2' },
         { input: 'Test "quotes"', expected: 'Test "quotes"' },
         { input: 'Test <html>', expected: 'Test <html>' },
-        { input: 'Test & symbols', expected: 'Test & symbols' }
+        { input: 'Test & symbols', expected: 'Test & symbols' },
       ]
-      
+
       testCases.forEach(({ input, expected }) => {
         const result = combineMessages(input, '')
         expect(result).toBe(expected)
@@ -140,13 +140,13 @@ describe('Comment Piping Logic', () => {
 
     test('should handle multi-byte unicode correctly', () => {
       const unicodeTests = [
-        '你好世界',  // Chinese
-        '🎉🚀💻',   // Emojis  
-        'café',      // Accented characters
-        '♠♣♥♦'      // Symbols
+        '你好世界', // Chinese
+        '🎉🚀💻', // Emojis
+        'café', // Accented characters
+        '♠♣♥♦', // Symbols
       ]
-      
-      unicodeTests.forEach(text => {
+
+      unicodeTests.forEach((text) => {
         const result = combineMessages('Prefix: ', text)
         expect(result).toBe(`Prefix: ${text}`)
       })

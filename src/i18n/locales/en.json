@@ -25,7 +25,7 @@
       "prompt": "Enter your comment:"
     },
     "diff": {
-      "description": "Get diff for a change",
+      "description": "Get diff for a change (accepts change ID or URL)",
       "fetching": "Fetching diff...",
       "error": "❌ Failed to fetch diff: {{error}}",
       "cached": "(cached)",

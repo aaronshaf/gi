@@ -10,15 +10,16 @@ type Step = 'host' | 'username' | 'password' | 'saving' | 'done' | 'error'
 
 interface InitCommandProps {
   readonly saveCredentials: (credentials: GerritCredentials) => Effect.Effect<void, ConfigError>
+  readonly existingCredentials?: GerritCredentials
 }
 
-export const InitCommand: React.FC<InitCommandProps> = ({ saveCredentials }) => {
+export const InitCommand: React.FC<InitCommandProps> = ({ saveCredentials, existingCredentials }) => {
   useApp()
   const [step, setStep] = useState<Step>('host')
   const [credentials, setCredentials] = useState({
-    host: '',
-    username: '',
-    password: '',
+    host: existingCredentials?.host ?? '',
+    username: existingCredentials?.username ?? '',
+    password: existingCredentials?.password ?? '',
   })
   const [error, setError] = useState<string>('')
 
@@ -28,41 +29,50 @@ export const InitCommand: React.FC<InitCommandProps> = ({ saveCredentials }) => 
 
   const handleHostSubmit = (value: string) => {
     const trimmed = value.trim()
-    if (!trimmed) {
+    // If empty, use existing default if available
+    const finalValue = !trimmed && existingCredentials?.host ? existingCredentials.host : trimmed
+    
+    if (!finalValue) {
       setError('Host URL is required')
       return
     }
     
     const urlPattern = /^https?:\/\/.+$/
-    if (!urlPattern.test(trimmed)) {
+    if (!urlPattern.test(finalValue)) {
       setError('Invalid URL format. Must start with http:// or https://')
       return
     }
 
-    setCredentials({ ...credentials, host: trimmed })
+    setCredentials({ ...credentials, host: finalValue })
     setError('')
     setStep('username')
   }
 
   const handleUsernameSubmit = (value: string) => {
     const trimmed = value.trim()
-    if (!trimmed) {
+    // If empty, use existing default if available
+    const finalValue = !trimmed && existingCredentials?.username ? existingCredentials.username : trimmed
+    
+    if (!finalValue) {
       setError('Username is required')
       return
     }
 
-    setCredentials({ ...credentials, username: trimmed })
+    setCredentials({ ...credentials, username: finalValue })
     setError('')
     setStep('password')
   }
 
   const handlePasswordSubmit = (value: string) => {
-    if (!value) {
+    // If empty, use existing default if available
+    const finalValue = !value && existingCredentials?.password ? existingCredentials.password : value
+    
+    if (!finalValue) {
       setError('Password is required')
       return
     }
 
-    setCredentials({ ...credentials, password: value })
+    setCredentials({ ...credentials, password: finalValue })
     setError('')
     setStep('saving')
 
@@ -72,7 +82,7 @@ export const InitCommand: React.FC<InitCommandProps> = ({ saveCredentials }) => 
         saveCredentials({
           host: credentials.host,
           username: credentials.username,
-          password: value,
+          password: finalValue,
         }),
         Effect.map(() => setStep('done')),
         Effect.catchTag('ConfigError', (e) => {
@@ -115,6 +125,9 @@ export const InitCommand: React.FC<InitCommandProps> = ({ saveCredentials }) => 
     <Box flexDirection="column">
       <Text bold>Gerrit CLI Setup</Text>
       <Text dimColor>Enter your Gerrit server credentials:</Text>
+      {existingCredentials && (
+        <Text dimColor>(Press Enter to keep existing values)</Text>
+      )}
       <Box marginTop={1} />
 
       {error && (
@@ -125,10 +138,14 @@ export const InitCommand: React.FC<InitCommandProps> = ({ saveCredentials }) => 
 
       {step === 'host' && (
         <Box>
-          <Text>Host URL: </Text>
+          <Text>
+            Host URL{existingCredentials?.host && (
+              <Text dimColor> [{existingCredentials.host}]</Text>
+            )}: 
+          </Text>
           <TextInput
             value={credentials.host}
-            placeholder="https://gerrit.example.com"
+            placeholder={existingCredentials?.host || "https://gerrit.example.com"}
             onChange={setHost}
             onSubmit={handleHostSubmit}
           />
@@ -137,10 +154,14 @@ export const InitCommand: React.FC<InitCommandProps> = ({ saveCredentials }) => 
 
       {step === 'username' && (
         <Box>
-          <Text>Username: </Text>
+          <Text>
+            Username{existingCredentials?.username && (
+              <Text dimColor> [{existingCredentials.username}]</Text>
+            )}: 
+          </Text>
           <TextInput
             value={credentials.username}
-            placeholder="your-username"
+            placeholder={existingCredentials?.username || "your-username"}
             onChange={setUsername}
             onSubmit={handleUsernameSubmit}
           />
@@ -149,10 +170,14 @@ export const InitCommand: React.FC<InitCommandProps> = ({ saveCredentials }) => 
 
       {step === 'password' && (
         <Box>
-          <Text>HTTP Password: </Text>
+          <Text>
+            HTTP Password{existingCredentials?.password && (
+              <Text dimColor> [&lt;hidden&gt;]</Text>
+            )}: 
+          </Text>
           <TextInput
             value={credentials.password}
-            placeholder="your-http-password"
+            placeholder={existingCredentials?.password ? "<existing password>" : "your-http-password"}
             mask="*"
             onChange={setPassword}
             onSubmit={handlePasswordSubmit}

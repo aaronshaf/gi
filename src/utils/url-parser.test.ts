@@ -107,11 +107,11 @@ describe('isValidChangeId', () => {
   test('handles exact Change-Id format validation', () => {
     // Valid Change-Id: starts with 'I' and exactly 40 hex chars
     expect(isValidChangeId('I1234567890abcdef1234567890abcdef12345678')).toBe(true)
-    
+
     // Invalid: wrong length
     expect(isValidChangeId('I123')).toBe(true) // this is treated as a valid topic name
     expect(isValidChangeId('I1234567890abcdef1234567890abcdef123456789')).toBe(true) // too long, treated as topic
-    
+
     // Invalid: non-hex characters
     expect(isValidChangeId('I1234567890abcdef1234567890abcdef1234567g')).toBe(true) // treated as topic name
   })
