@@ -38340,7 +38340,7 @@ function wrapAnsi(string6, columns, options2) {
 `);
 }
 
-// node_modules/cli-truncate/node_modules/slice-ansi/node_modules/is-fullwidth-code-point/index.js
+// node_modules/is-fullwidth-code-point/index.js
 function isFullwidthCodePoint(codePoint) {
   if (!Number.isInteger(codePoint)) {
     return false;
@@ -40057,14 +40057,6 @@ function styledCharsToString(chars) {
   }
   return ret;
 }
-// node_modules/@alcalzone/ansi-tokenize/node_modules/is-fullwidth-code-point/index.js
-function isFullwidthCodePoint3(codePoint) {
-  if (!Number.isInteger(codePoint)) {
-    return false;
-  }
-  return codePoint >= 4352 && (codePoint <= 4447 || codePoint === 9001 || codePoint === 9002 || 11904 <= codePoint && codePoint <= 12871 && codePoint !== 12351 || 12880 <= codePoint && codePoint <= 19903 || 19968 <= codePoint && codePoint <= 42182 || 43360 <= codePoint && codePoint <= 43388 || 44032 <= codePoint && codePoint <= 55203 || 63744 <= codePoint && codePoint <= 64255 || 65040 <= codePoint && codePoint <= 65049 || 65072 <= codePoint && codePoint <= 65131 || 65281 <= codePoint && codePoint <= 65376 || 65504 <= codePoint && codePoint <= 65510 || 110592 <= codePoint && codePoint <= 110593 || 127488 <= codePoint && codePoint <= 127569 || 131072 <= codePoint && codePoint <= 262141);
-}
-
 // node_modules/@alcalzone/ansi-tokenize/build/tokenize.js
 function findNumberIndex2(str) {
   for (let index = 0;index < str.length; index++) {
@@ -40116,7 +40108,7 @@ function tokenize2(str, endChar = Number.POSITIVE_INFINITY) {
         continue;
       }
     }
-    const fullWidth = isFullwidthCodePoint3(codePoint);
+    const fullWidth = isFullwidthCodePoint(codePoint);
     const character = String.fromCodePoint(codePoint);
     ret.push({
       type: "char",
@@ -50707,7 +50699,7 @@ var en_default = {
       prompt: "Enter your comment:"
     },
     diff: {
-      description: "Get diff for a change",
+      description: "Get diff for a change (accepts change ID or URL)",
       fetching: "Fetching diff...",
       error: "\u274C Failed to fetch diff: {{error}}",
       cached: "(cached)",
@@ -50769,6 +50761,33 @@ var initI18n = exports_Effect.tryPromise({
 var t2 = (key, options2) => {
   const result = instance.t(key, options2);
   return typeof result === "string" ? result : String(result);
+};
+
+// src/utils/url-parser.ts
+var extractChangeNumber = (input) => {
+  const trimmed2 = input.trim();
+  if (!trimmed2.startsWith("http://") && !trimmed2.startsWith("https://")) {
+    return trimmed2;
+  }
+  try {
+    const url2 = new URL(trimmed2);
+    const patterns = [
+      /\/c\/[^/]+\/\+\/(\d+)/,
+      /#\/c\/[^/]+\/\+\/(\d+)/,
+      /\/c\/\+\/(\d+)/,
+      /#\/c\/\+\/(\d+)/
+    ];
+    const fullPath = url2.pathname + url2.hash;
+    for (const pattern3 of patterns) {
+      const match25 = fullPath.match(pattern3);
+      if (match25 && match25[1]) {
+        return match25[1];
+      }
+    }
+    return trimmed2;
+  } catch {
+    return trimmed2;
+  }
 };
 
 // src/cli/commands/comment.tsx
@@ -51043,13 +51062,13 @@ var DiffCommand = ({
 
 // src/cli/commands/init.tsx
 var import_react27 = __toESM(require_react(), 1);
-var InitCommand = ({ saveCredentials }) => {
+var InitCommand = ({ saveCredentials, existingCredentials }) => {
   use_app_default();
   const [step4, setStep] = import_react27.useState("host");
   const [credentials, setCredentials] = import_react27.useState({
-    host: "",
-    username: "",
-    password: ""
+    host: existingCredentials?.host ?? "",
+    username: existingCredentials?.username ?? "",
+    password: existingCredentials?.password ?? ""
   });
   const [error2, setError] = import_react27.useState("");
   const setHost = (value6) => setCredentials({ ...credentials, host: value6 });
@@ -51057,41 +51076,44 @@ var InitCommand = ({ saveCredentials }) => {
   const setPassword2 = (value6) => setCredentials({ ...credentials, password: value6 });
   const handleHostSubmit = (value6) => {
     const trimmed2 = value6.trim();
-    if (!trimmed2) {
+    const finalValue = !trimmed2 && existingCredentials?.host ? existingCredentials.host : trimmed2;
+    if (!finalValue) {
       setError("Host URL is required");
       return;
     }
     const urlPattern = /^https?:\/\/.+$/;
-    if (!urlPattern.test(trimmed2)) {
+    if (!urlPattern.test(finalValue)) {
       setError("Invalid URL format. Must start with http:// or https://");
       return;
     }
-    setCredentials({ ...credentials, host: trimmed2 });
+    setCredentials({ ...credentials, host: finalValue });
     setError("");
     setStep("username");
   };
   const handleUsernameSubmit = (value6) => {
     const trimmed2 = value6.trim();
-    if (!trimmed2) {
+    const finalValue = !trimmed2 && existingCredentials?.username ? existingCredentials.username : trimmed2;
+    if (!finalValue) {
       setError("Username is required");
       return;
     }
-    setCredentials({ ...credentials, username: trimmed2 });
+    setCredentials({ ...credentials, username: finalValue });
     setError("");
     setStep("password");
   };
   const handlePasswordSubmit = (value6) => {
-    if (!value6) {
+    const finalValue = !value6 && existingCredentials?.password ? existingCredentials.password : value6;
+    if (!finalValue) {
       setError("Password is required");
       return;
     }
-    setCredentials({ ...credentials, password: value6 });
+    setCredentials({ ...credentials, password: finalValue });
     setError("");
     setStep("saving");
     exports_Effect.runPromise(pipe(saveCredentials({
       host: credentials.host,
       username: credentials.username,
-      password: value6
+      password: finalValue
     }), exports_Effect.map(() => setStep("done")), exports_Effect.catchTag("ConfigError", (e) => {
       setError(e.message);
       setStep("error");
@@ -51125,25 +51147,33 @@ var InitCommand = ({ saveCredentials }) => {
     bold: true
   }, "Gerrit CLI Setup"), /* @__PURE__ */ import_react27.default.createElement(Text, {
     dimColor: true
-  }, "Enter your Gerrit server credentials:"), /* @__PURE__ */ import_react27.default.createElement(Box_default, {
+  }, "Enter your Gerrit server credentials:"), existingCredentials && /* @__PURE__ */ import_react27.default.createElement(Text, {
+    dimColor: true
+  }, "(Press Enter to keep existing values)"), /* @__PURE__ */ import_react27.default.createElement(Box_default, {
     marginTop: 1
   }), error2 && /* @__PURE__ */ import_react27.default.createElement(Box_default, {
     marginBottom: 1
   }, /* @__PURE__ */ import_react27.default.createElement(Text, {
     color: "red"
-  }, error2)), step4 === "host" && /* @__PURE__ */ import_react27.default.createElement(Box_default, null, /* @__PURE__ */ import_react27.default.createElement(Text, null, "Host URL: "), /* @__PURE__ */ import_react27.default.createElement(build_default, {
+  }, error2)), step4 === "host" && /* @__PURE__ */ import_react27.default.createElement(Box_default, null, /* @__PURE__ */ import_react27.default.createElement(Text, null, "Host URL", existingCredentials?.host && /* @__PURE__ */ import_react27.default.createElement(Text, {
+    dimColor: true
+  }, " [", existingCredentials.host, "]"), ":"), /* @__PURE__ */ import_react27.default.createElement(build_default, {
     value: credentials.host,
-    placeholder: "https://gerrit.example.com",
+    placeholder: existingCredentials?.host || "https://gerrit.example.com",
     onChange: setHost,
     onSubmit: handleHostSubmit
-  })), step4 === "username" && /* @__PURE__ */ import_react27.default.createElement(Box_default, null, /* @__PURE__ */ import_react27.default.createElement(Text, null, "Username: "), /* @__PURE__ */ import_react27.default.createElement(build_default, {
+  })), step4 === "username" && /* @__PURE__ */ import_react27.default.createElement(Box_default, null, /* @__PURE__ */ import_react27.default.createElement(Text, null, "Username", existingCredentials?.username && /* @__PURE__ */ import_react27.default.createElement(Text, {
+    dimColor: true
+  }, " [", existingCredentials.username, "]"), ":"), /* @__PURE__ */ import_react27.default.createElement(build_default, {
     value: credentials.username,
-    placeholder: "your-username",
+    placeholder: existingCredentials?.username || "your-username",
     onChange: setUsername,
     onSubmit: handleUsernameSubmit
-  })), step4 === "password" && /* @__PURE__ */ import_react27.default.createElement(Box_default, null, /* @__PURE__ */ import_react27.default.createElement(Text, null, "HTTP Password: "), /* @__PURE__ */ import_react27.default.createElement(build_default, {
+  })), step4 === "password" && /* @__PURE__ */ import_react27.default.createElement(Box_default, null, /* @__PURE__ */ import_react27.default.createElement(Text, null, "HTTP Password", existingCredentials?.password && /* @__PURE__ */ import_react27.default.createElement(Text, {
+    dimColor: true
+  }, " [<hidden>]"), ":"), /* @__PURE__ */ import_react27.default.createElement(build_default, {
     value: credentials.password,
-    placeholder: "your-http-password",
+    placeholder: existingCredentials?.password ? "<existing password>" : "your-http-password",
     mask: "*",
     onChange: setPassword2,
     onSubmit: handlePasswordSubmit
@@ -51233,8 +51263,10 @@ program.name("ger").description("Gerrit CLI - A modern command-line interface fo
 program.command("init").description(t2("commands.init.description")).action(() => {
   exports_Effect.runPromise(pipe(exports_Effect.gen(function* () {
     const configService = yield* ConfigService;
+    const existingCredentials = yield* configService.getCredentials.pipe(exports_Effect.catchAll(() => exports_Effect.succeed(undefined)));
     const { waitUntilExit } = render_default(import_react29.default.createElement(InitCommand, {
-      saveCredentials: configService.saveCredentials
+      saveCredentials: configService.saveCredentials,
+      existingCredentials
     }));
     yield* exports_Effect.promise(() => waitUntilExit());
   }), exports_Effect.provide(MainLayer), exports_Effect.catchAll(() => exports_Effect.void))).catch(console.error);
@@ -51247,18 +51279,45 @@ program.command("status").description(t2("commands.status.description")).action(
     yield* exports_Effect.promise(() => waitUntilExit());
   }), exports_Effect.provide(MainLayer), exports_Effect.catchAll(() => exports_Effect.void))).catch(console.error);
 });
-program.command("comment <change-id>").description(t2("commands.comment.description")).option("-m, --message <message>", "Comment message").action((changeId, options2) => {
+program.command("comment <change-id>").description(t2("commands.comment.description")).option("-m, --message <message>", "Comment message").action(async (changeIdOrUrl, options2) => {
+  let stdinMessage;
+  if (!process.stdin.isTTY) {
+    const chunks2 = [];
+    for await (const chunk4 of process.stdin) {
+      chunks2.push(chunk4);
+    }
+    stdinMessage = Buffer.concat(chunks2).toString().trim();
+  }
+  let finalMessage;
+  if (options2.message && stdinMessage) {
+    finalMessage = options2.message + stdinMessage;
+  } else {
+    finalMessage = options2.message || stdinMessage;
+  }
   exports_Effect.runPromise(pipe(exports_Effect.gen(function* () {
     const apiService = yield* GerritApiService;
-    const { waitUntilExit } = render_default(import_react29.default.createElement(CommentCommand, {
-      changeId,
-      message: options2.message,
-      apiService
-    }));
-    yield* exports_Effect.promise(() => waitUntilExit());
+    const changeId = extractChangeNumber(changeIdOrUrl);
+    if (finalMessage) {
+      console.log("Posting comment...");
+      try {
+        yield* apiService.postReview(changeId, { message: finalMessage });
+        console.log("\u2713 Comment posted successfully!");
+      } catch (error2) {
+        console.error("\u2717 Failed to post comment:", error2 instanceof Error ? error2.message : String(error2));
+        process.exit(1);
+      }
+    } else {
+      const { waitUntilExit } = render_default(import_react29.default.createElement(CommentCommand, {
+        changeId,
+        message: undefined,
+        apiService
+      }));
+      yield* exports_Effect.promise(() => waitUntilExit());
+    }
   }), exports_Effect.provide(MainLayer), exports_Effect.catchAll(() => exports_Effect.void))).catch(console.error);
 });
-program.command("diff <change-id>").description(t2("commands.diff.description")).option("--format <format>", "Output format: unified, json, files", "unified").option("--patchset <number>", "Patchset number (defaults to current)", parseInt).option("--file <path>", "Show diff for specific file only").option("--files-only", "List changed files only").option("--full-files", "Show full content of changed files").option("--base <number>", "Base patchset for comparison", parseInt).option("--target <number>", "Target patchset for comparison", parseInt).action((changeId, options2) => {
+program.command("diff <change-id>").description(t2("commands.diff.description")).option("--format <format>", "Output format: unified, json, files", "unified").option("--patchset <number>", "Patchset number (defaults to current)", parseInt).option("--file <path>", "Show diff for specific file only").option("--files-only", "List changed files only").option("--full-files", "Show full content of changed files").option("--base <number>", "Base patchset for comparison", parseInt).option("--target <number>", "Target patchset for comparison", parseInt).action((changeIdOrUrl, options2) => {
+  const changeId = extractChangeNumber(changeIdOrUrl);
   const diffOptions = {
     format: options2.format,
     patchset: options2.patchset,

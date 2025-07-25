@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, mock } from 'bun:test'
+import { beforeAll, describe, expect, mock, test } from 'bun:test'
 import { extractChangeNumber } from '@/utils/url-parser'
 import { setupFetchMock } from '../../mocks/fetch-mock'
 
@@ -24,20 +24,20 @@ describe('gi comment command', () => {
       const testCases = [
         {
           input: 'https://gerrit.instructure.com/c/canvas-lms/+/335531',
-          expected: '335531'
+          expected: '335531',
         },
         {
           input: 'https://gerrit.example.com/c/project/+/12345/',
-          expected: '12345'
+          expected: '12345',
         },
         {
           input: 'https://gerrit.example.com/c/project/+/12345/2',
-          expected: '12345'
+          expected: '12345',
         },
         {
           input: 'https://gerrit.example.com/#/c/project/+/99999',
-          expected: '99999'
-        }
+          expected: '99999',
+        },
       ]
 
       testCases.forEach(({ input, expected }) => {
@@ -50,7 +50,7 @@ describe('gi comment command', () => {
         { input: 'not-a-url', expected: 'not-a-url' },
         { input: 'https://example.com/other/path', expected: 'https://example.com/other/path' },
         { input: '', expected: '' },
-        { input: '  12345  ', expected: '12345' }
+        { input: '  12345  ', expected: '12345' },
       ]
 
       testCases.forEach(({ input, expected }) => {
@@ -67,7 +67,7 @@ describe('gi comment command', () => {
         expect(options?.method).toBe('POST')
         expect(options?.headers).toHaveProperty('Authorization')
         expect(options?.headers).toHaveProperty('Content-Type', 'application/json')
-        
+
         const body = JSON.parse(options?.body as string)
         expect(body).toHaveProperty('message')
 
@@ -84,11 +84,11 @@ describe('gi comment command', () => {
           {
             method: 'POST',
             headers: {
-              'Authorization': `Basic ${btoa('user:pass')}`,
-              'Content-Type': 'application/json'
+              Authorization: `Basic ${btoa('user:pass')}`,
+              'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ message: 'Test comment' })
-          }
+            body: JSON.stringify({ message: 'Test comment' }),
+          },
         )
 
         expect(response.status).toBe(200)
@@ -101,20 +101,20 @@ describe('gi comment command', () => {
 
   describe('Non-interactive mode (-m flag)', () => {
     test('should format console output correctly', () => {
-      const mockLog = mock((message: string) => {})
-      const mockError = mock((message: string, error?: string) => {})
-      
+      const mockLog = mock((_message: string) => {})
+      const mockError = mock((_message: string, _error?: string) => {})
+
       // Simulate successful comment posting
       mockLog('Posting comment...')
       mockLog('✓ Comment posted successfully!')
-      
+
       expect(mockLog).toHaveBeenCalledTimes(2)
       expect(mockLog.mock.calls[0]).toEqual(['Posting comment...'])
       expect(mockLog.mock.calls[1]).toEqual(['✓ Comment posted successfully!'])
-      
+
       // Simulate error case
       mockError('✗ Failed to post comment:', 'Network error')
-      
+
       expect(mockError).toHaveBeenCalledTimes(1)
       expect(mockError.mock.calls[0]).toEqual(['✗ Failed to post comment:', 'Network error'])
     })
@@ -147,10 +147,10 @@ describe('gi comment command', () => {
           await fetch('https://gerrit.example.com/a/changes/12345/revisions/current/review', {
             method: 'POST',
             headers: {
-              'Authorization': `Basic ${btoa('user:pass')}`,
-              'Content-Type': 'application/json'
+              Authorization: `Basic ${btoa('user:pass')}`,
+              'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ message: 'Test' })
+            body: JSON.stringify({ message: 'Test' }),
           })
         } catch (error) {
           errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -163,14 +163,17 @@ describe('gi comment command', () => {
     })
 
     test('should handle 401 unauthorized responses', async () => {
-      const response = await fetch('https://gerrit.example.com/a/changes/12345/revisions/current/review', {
-        method: 'POST',
-        headers: {
-          // No Authorization header
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        'https://gerrit.example.com/a/changes/12345/revisions/current/review',
+        {
+          method: 'POST',
+          headers: {
+            // No Authorization header
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message: 'Test' }),
         },
-        body: JSON.stringify({ message: 'Test' })
-      })
+      )
 
       expect(response.status).toBe(401)
       const text = await response.text()

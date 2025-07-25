@@ -1,5 +1,4 @@
-import { describe, test, expect, beforeAll, mock } from 'bun:test'
-import { Effect } from 'effect'
+import { beforeAll, describe, expect, mock, test } from 'bun:test'
 import { extractChangeNumber } from '@/utils/url-parser'
 import { setupFetchMock } from '../../mocks/fetch-mock'
 
@@ -33,16 +32,19 @@ describe('Comment Command - Simple Tests', () => {
   describe('Mock API calls', () => {
     test('should mock review posting correctly', async () => {
       // Test that our fetch mock handles review endpoint
-      const response = await fetch('https://gerrit.example.com/a/changes/12345/revisions/current/review', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${btoa('testuser:testpass')}`,
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        'https://gerrit.example.com/a/changes/12345/revisions/current/review',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${btoa('testuser:testpass')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: 'Test comment',
+          }),
         },
-        body: JSON.stringify({
-          message: 'Test comment'
-        })
-      })
+      )
 
       expect(response.status).toBe(200)
       const text = await response.text()
@@ -50,31 +52,37 @@ describe('Comment Command - Simple Tests', () => {
     })
 
     test('should reject requests without authorization', async () => {
-      const response = await fetch('https://gerrit.example.com/a/changes/12345/revisions/current/review', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        'https://gerrit.example.com/a/changes/12345/revisions/current/review',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: 'This should fail',
+          }),
         },
-        body: JSON.stringify({
-          message: 'This should fail'
-        })
-      })
+      )
 
       expect(response.status).toBe(401)
     })
 
     test('should accept requests with valid credentials', async () => {
       // The mock accepts any Basic auth header, doesn't validate credentials
-      const response = await fetch('https://gerrit.example.com/a/changes/12345/revisions/current/review', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${btoa('anyuser:anypass')}`,
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        'https://gerrit.example.com/a/changes/12345/revisions/current/review',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${btoa('anyuser:anypass')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: 'This should succeed',
+          }),
         },
-        body: JSON.stringify({
-          message: 'This should succeed'
-        })
-      })
+      )
 
       expect(response.status).toBe(200)
     })

@@ -260,12 +260,12 @@ describe('DatabaseService', () => {
           // We need to access the database directly to set expires_at to a past timestamp
           const dbService = service as any
           const db = dbService.db
-          
+
           // Update the record to be expired (expires_at expects seconds, not milliseconds)
           const expiredTimestamp = Math.floor(Date.now() / 1000) - 10 // 10 seconds ago
           const updateQuery = db.query('UPDATE changes SET expires_at = ? WHERE change_id = ?')
           updateQuery.run(expiredTimestamp, mockChange.change_id)
-          
+
           // Now try to retrieve it - should trigger deletion of expired entry
           return yield* service.getChange(mockChange.change_id)
         }).pipe(Effect.provide(DatabaseServiceLive)),
