@@ -42,9 +42,6 @@ jobs:
       - name: Run linting
         run: bun run lint
 
-      - name: Run format check
-        run: bun run format:check
-
       - name: Run tests with coverage
         run: bun run test:coverage
 

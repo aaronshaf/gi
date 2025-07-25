@@ -8,6 +8,7 @@ import { GerritApiService, GerritApiServiceLive } from '@/api/gerrit'
 import { DatabaseServiceLive } from '@/db/database'
 import { initI18n, t } from '@/i18n'
 import { ConfigService, ConfigServiceLive } from '@/services/config'
+import { extractChangeNumber } from '@/utils/url-parser'
 import { CommentCommand } from './commands/comment'
 import { DiffCommand } from './commands/diff'
 import { InitCommand } from './commands/init'
@@ -37,9 +38,16 @@ program
       pipe(
         Effect.gen(function* () {
           const configService = yield* ConfigService
+
+          // Try to load existing credentials, ignore errors if none exist
+          const existingCredentials = yield* configService.getCredentials.pipe(
+            Effect.catchAll(() => Effect.succeed(undefined)),
+          )
+
           const { waitUntilExit } = render(
             React.createElement(InitCommand, {
               saveCredentials: configService.saveCredentials,
+              existingCredentials,
             }),
           )
           yield* Effect.promise(() => waitUntilExit())
@@ -74,19 +82,60 @@ program
   .command('comment <change-id>')
   .description(t('commands.comment.description'))
   .option('-m, --message <message>', 'Comment message')
-  .action((changeId: string, options: { message?: string }) => {
+  .action(async (changeIdOrUrl: string, options: { message?: string }) => {
+    // Check if stdin is piped
+    let stdinMessage: string | undefined
+    if (!process.stdin.isTTY) {
+      // Read from stdin
+      const chunks: Buffer[] = []
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk)
+      }
+      stdinMessage = Buffer.concat(chunks).toString().trim()
+    }
+
+    // Combine messages if both are present
+    let finalMessage: string | undefined
+    if (options.message && stdinMessage) {
+      // Both -m and piped input: concatenate directly (no forced newline)
+      finalMessage = options.message + stdinMessage
+    } else {
+      // Use whichever is available
+      finalMessage = options.message || stdinMessage
+    }
+
     Effect.runPromise(
       pipe(
         Effect.gen(function* () {
           const apiService = yield* GerritApiService
-          const { waitUntilExit } = render(
-            React.createElement(CommentCommand, {
-              changeId,
-              message: options.message,
-              apiService,
-            }),
-          )
-          yield* Effect.promise(() => waitUntilExit())
+
+          // Extract change number from URL if needed
+          const changeId = extractChangeNumber(changeIdOrUrl)
+
+          // If message is provided via CLI or stdin, handle non-interactively
+          if (finalMessage) {
+            console.log('Posting comment...')
+            try {
+              yield* apiService.postReview(changeId, { message: finalMessage })
+              console.log('✓ Comment posted successfully!')
+            } catch (error) {
+              console.error(
+                '✗ Failed to post comment:',
+                error instanceof Error ? error.message : String(error),
+              )
+              process.exit(1)
+            }
+          } else {
+            // Interactive mode with Ink
+            const { waitUntilExit } = render(
+              React.createElement(CommentCommand, {
+                changeId,
+                message: undefined,
+                apiService,
+              }),
+            )
+            yield* Effect.promise(() => waitUntilExit())
+          }
         }),
         Effect.provide(MainLayer),
         Effect.catchAll(() => Effect.void),
@@ -106,7 +155,7 @@ program
   .option('--target <number>', 'Target patchset for comparison', parseInt)
   .action(
     (
-      changeId: string,
+      changeIdOrUrl: string,
       options: {
         format?: string
         patchset?: number
@@ -117,6 +166,9 @@ program
         target?: number
       },
     ) => {
+      // Extract change number from URL if needed
+      const changeId = extractChangeNumber(changeIdOrUrl)
+
       const diffOptions = {
         format: options.format as unknown as 'unified' | 'json' | 'files',
         patchset: options.patchset,
