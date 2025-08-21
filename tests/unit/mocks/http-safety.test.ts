@@ -45,9 +45,9 @@ describe('HTTP Mock Safety Tests', () => {
     })
 
     test('should reject non-example URLs', async () => {
-      expect(async () => {
-        await fetch('https://gerrit.production.com/real/api')
-      }).rejects.toThrow('SAFETY: Attempted to call non-example domain in tests!')
+      expect(fetch('https://gerrit.production.com/real/api')).rejects.toThrow(
+        'SAFETY: Attempted to call non-example domain in tests!',
+      )
     })
 
     test('should handle authentication without real credentials', async () => {
