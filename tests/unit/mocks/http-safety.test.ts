@@ -3,10 +3,8 @@ import { setupFetchMock } from '../../mocks/fetch-mock'
 
 describe('HTTP Mock Safety Tests', () => {
   let fetchCallLog: any[] = []
-  let _originalFetch: typeof fetch
 
   beforeAll(() => {
-    _originalFetch = global.fetch
     setupFetchMock()
 
     // Wrap the mock to log all calls
@@ -15,9 +13,13 @@ describe('HTTP Mock Safety Tests', () => {
       const urlStr = url.toString()
       fetchCallLog.push({ url: urlStr, method: options?.method || 'GET' })
 
-      // Ensure we NEVER hit real domains
-      if (urlStr.includes('instructure.com') && !urlStr.includes('example')) {
-        throw new Error('SAFETY: Attempted to call real production API!')
+      // Ensure we NEVER hit real domains (whitelist only example domains)
+      if (
+        !urlStr.includes('example.com') &&
+        !urlStr.includes('localhost') &&
+        !urlStr.includes('127.0.0.1')
+      ) {
+        throw new Error('SAFETY: Attempted to call non-example domain in tests!')
       }
 
       // Call the mocked fetch
@@ -42,10 +44,10 @@ describe('HTTP Mock Safety Tests', () => {
       expect(response.status).toBe(200)
     })
 
-    test('should reject real production URLs', async () => {
-      await expect(fetch('https://gerrit.instructure.com/real/api')).rejects.toThrow(
-        'SAFETY: Attempted to call real production API!',
-      )
+    test('should reject non-example URLs', async () => {
+      expect(async () => {
+        await fetch('https://gerrit.production.com/real/api')
+      }).rejects.toThrow('SAFETY: Attempted to call non-example domain in tests!')
     })
 
     test('should handle authentication without real credentials', async () => {

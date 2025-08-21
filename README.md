@@ -25,7 +25,7 @@ Set environment variables and run init:
 ```bash
 export GERRIT_HOST="https://gerrit.example.com"
 export GERRIT_USERNAME="your-username"
-export GERRIT_PASSWORD="your-http-password"
+export GERRIT_PASSWORD="your-http-password-from-gerrit-settings"
 
 ger init
 ```

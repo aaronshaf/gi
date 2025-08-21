@@ -7,28 +7,28 @@
     "ger": "./src/cli/index.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.1.2",
-    "@types/node": "^24.1.0",
-    "@types/react": "^19.1.8",
+    "@biomejs/biome": "^2.2.0",
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.10",
     "ast-grep": "^0.1.0",
-    "bun-types": "^1.2.19",
+    "bun-types": "^1.2.20",
     "husky": "^9.1.7",
-    "lint-staged": "^16.1.2",
-    "oxlint": "^1.8.0",
-    "typescript": "^5.8.3"
+    "lint-staged": "^16.1.5",
+    "oxlint": "^1.12.0",
+    "typescript": "^5.9.2"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@effect/platform": "^0.90.0",
-    "@effect/platform-node": "^0.94.0",
+    "@effect/platform": "^0.90.6",
+    "@effect/platform-node": "^0.94.2",
     "@effect/schema": "^0.75.5",
     "@opentui/react": "^0.1.8",
     "commander": "^14.0.0",
-    "effect": "^3.17.1",
+    "effect": "^3.17.8",
     "keytar": "^7.9.0",
-    "react": "^19.1.0"
+    "react": "^19.1.1"
   },
   "scripts": {
     "prepare": "husky",
