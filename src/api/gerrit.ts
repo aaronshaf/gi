@@ -17,6 +17,7 @@ export class GerritApiService extends Context.Tag('GerritApiService')<
     readonly getChange: (changeId: string) => Effect.Effect<ChangeInfo, ApiError>
     readonly listChanges: (query?: string) => Effect.Effect<readonly ChangeInfo[], ApiError>
     readonly postReview: (changeId: string, review: ReviewInput) => Effect.Effect<void, ApiError>
+    readonly abandonChange: (changeId: string, message?: string) => Effect.Effect<void, ApiError>
     readonly testConnection: Effect.Effect<boolean, ApiError>
     readonly getRevision: (
       changeId: string,
@@ -133,8 +134,13 @@ export const GerritApiServiceLive: Layer.Layer<
       const credentials = yield* configService.getCredentials.pipe(
         Effect.mapError(() => new ApiError({ message: 'Failed to get credentials' })),
       )
-      const authHeader = createAuthHeader(credentials)
-      return { credentials, authHeader }
+      // Ensure host doesn't have trailing slash
+      const normalizedCredentials = {
+        ...credentials,
+        host: credentials.host.replace(/\/$/, '')
+      }
+      const authHeader = createAuthHeader(normalizedCredentials)
+      return { credentials: normalizedCredentials, authHeader }
     })
 
     const getChange = (changeId: string) =>
@@ -148,7 +154,8 @@ export const GerritApiServiceLive: Layer.Layer<
       Effect.gen(function* () {
         const { credentials, authHeader } = yield* getCredentialsAndAuth
         const encodedQuery = encodeURIComponent(query)
-        const url = `${credentials.host}/a/changes/?q=${encodedQuery}`
+        // Add o=LABELS and o=DETAILED_LABELS to get label information
+        const url = `${credentials.host}/a/changes/?q=${encodedQuery}&o=LABELS&o=DETAILED_LABELS&o=SUBMITTABLE`
         return yield* makeRequest(
           url,
           authHeader,
@@ -165,12 +172,26 @@ export const GerritApiServiceLive: Layer.Layer<
         yield* makeRequest(url, authHeader, 'POST', review)
       })
 
+    const abandonChange = (changeId: string, message?: string) =>
+      Effect.gen(function* () {
+        const { credentials, authHeader } = yield* getCredentialsAndAuth
+        const url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}/abandon`
+        const body = message ? { message } : {}
+        yield* makeRequest(url, authHeader, 'POST', body)
+      })
+
     const testConnection = Effect.gen(function* () {
       const { credentials, authHeader } = yield* getCredentialsAndAuth
       const url = `${credentials.host}/a/accounts/self`
       yield* makeRequest(url, authHeader)
       return true
-    }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+    }).pipe(Effect.catchAll((error) => {
+      // Log the actual error for debugging
+      if (process.env.DEBUG) {
+        console.error('Connection error:', error)
+      }
+      return Effect.succeed(false)
+    }))
 
     const getRevision = (changeId: string, revisionId = 'current') =>
       Effect.gen(function* () {
@@ -394,6 +415,7 @@ export const GerritApiServiceLive: Layer.Layer<
       getChange,
       listChanges,
       postReview,
+      abandonChange,
       testConnection,
       getRevision,
       getFiles,

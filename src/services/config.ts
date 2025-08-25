@@ -1,6 +1,8 @@
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer } from 'effect'
-import * as keytar from 'keytar'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 import { GerritCredentials } from '@/schemas/gerrit'
 
 export class ConfigService extends Context.Tag('ConfigService')<
@@ -16,44 +18,60 @@ export class ConfigError extends Schema.TaggedError<ConfigError>()('ConfigError'
   message: Schema.String,
 }) {}
 
-const SERVICE_NAME = 'gerrit-cli'
-const ACCOUNT_HOST = 'host'
-const ACCOUNT_USERNAME = 'username'
-const ACCOUNT_PASSWORD = 'password'
+// File-based storage
+const CONFIG_DIR = path.join(os.homedir(), '.ger')
+const CONFIG_FILE = path.join(CONFIG_DIR, 'auth.json')
+
+const readFileConfig = (): GerritCredentials | null => {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const content = fs.readFileSync(CONFIG_FILE, 'utf8')
+      return JSON.parse(content)
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  return null
+}
+
+const writeFileConfig = (credentials: GerritCredentials): void => {
+  // Ensure config directory exists
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
+  }
+  
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(credentials, null, 2), 'utf8')
+  // Set restrictive permissions
+  fs.chmodSync(CONFIG_FILE, 0o600)
+}
+
+const deleteFileConfig = (): void => {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      fs.unlinkSync(CONFIG_FILE)
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+}
 
 export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer.effect(
   ConfigService,
   Effect.sync(() => {
     const getCredentials = Effect.gen(function* () {
-      const host = yield* Effect.tryPromise({
-        try: () => keytar.getPassword(SERVICE_NAME, ACCOUNT_HOST),
-        catch: () => new ConfigError({ message: 'Failed to retrieve host from secure storage' }),
-      })
-
-      const username = yield* Effect.tryPromise({
-        try: () => keytar.getPassword(SERVICE_NAME, ACCOUNT_USERNAME),
-        catch: () =>
-          new ConfigError({ message: 'Failed to retrieve username from secure storage' }),
-      })
-
-      const password = yield* Effect.tryPromise({
-        try: () => keytar.getPassword(SERVICE_NAME, ACCOUNT_PASSWORD),
-        catch: () =>
-          new ConfigError({ message: 'Failed to retrieve password from secure storage' }),
-      })
-
-      if (!host || !username || !password) {
-        yield* Effect.fail(
-          new ConfigError({
-            message: 'Credentials not found. Run "gi init" to set up your credentials.',
-          }),
+      // Use file-based config
+      const fileConfig = readFileConfig()
+      if (fileConfig) {
+        return yield* Schema.decodeUnknown(GerritCredentials)(fileConfig).pipe(
+          Effect.mapError(() => new ConfigError({ message: 'Invalid stored credentials format' })),
         )
       }
 
-      // Validate retrieved credentials
-      const credentials = { host, username, password }
-      return yield* Schema.decodeUnknown(GerritCredentials)(credentials).pipe(
-        Effect.mapError(() => new ConfigError({ message: 'Invalid stored credentials format' })),
+      // No credentials found
+      yield* Effect.fail(
+        new ConfigError({
+          message: 'Credentials not found. Run "ger init" to set up your credentials.',
+        }),
       )
     })
 
@@ -64,41 +82,21 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
           credentials,
         ).pipe(Effect.mapError(() => new ConfigError({ message: 'Invalid credentials format' })))
 
-        // Store each component separately in keychain
-        yield* Effect.tryPromise({
-          try: () => keytar.setPassword(SERVICE_NAME, ACCOUNT_HOST, validatedCredentials.host),
-          catch: () => new ConfigError({ message: 'Failed to store host in secure storage' }),
-        })
-
-        yield* Effect.tryPromise({
-          try: () =>
-            keytar.setPassword(SERVICE_NAME, ACCOUNT_USERNAME, validatedCredentials.username),
-          catch: () => new ConfigError({ message: 'Failed to store username in secure storage' }),
-        })
-
-        yield* Effect.tryPromise({
-          try: () =>
-            keytar.setPassword(SERVICE_NAME, ACCOUNT_PASSWORD, validatedCredentials.password),
-          catch: () => new ConfigError({ message: 'Failed to store password in secure storage' }),
-        })
+        // Use file-based storage
+        try {
+          writeFileConfig(validatedCredentials)
+        } catch (e) {
+          yield* Effect.fail(new ConfigError({ message: 'Failed to save credentials to file' }))
+        }
       })
 
     const deleteCredentials = Effect.gen(function* () {
-      // Delete each component, ignoring errors if entries don't exist
-      yield* Effect.tryPromise({
-        try: () => keytar.deletePassword(SERVICE_NAME, ACCOUNT_HOST),
-        catch: () => new ConfigError({ message: 'Failed to delete host from keychain' }),
-      }).pipe(Effect.catchAll(() => Effect.void))
-
-      yield* Effect.tryPromise({
-        try: () => keytar.deletePassword(SERVICE_NAME, ACCOUNT_USERNAME),
-        catch: () => new ConfigError({ message: 'Failed to delete username from keychain' }),
-      }).pipe(Effect.catchAll(() => Effect.void))
-
-      yield* Effect.tryPromise({
-        try: () => keytar.deletePassword(SERVICE_NAME, ACCOUNT_PASSWORD),
-        catch: () => new ConfigError({ message: 'Failed to delete password from keychain' }),
-      }).pipe(Effect.catchAll(() => Effect.void))
+      // Delete file config
+      try {
+        deleteFileConfig()
+      } catch (e) {
+        // Ignore errors
+      }
     })
 
     return {

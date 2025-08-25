@@ -65,6 +65,36 @@ ger diff 12345 --files-only
 ger diff 12345 --file src/main.ts
 ```
 
+### List My Changes
+```bash
+# XML output (default)
+ger mine
+
+# Human-readable output
+ger mine --pretty
+```
+
+### Abandon Change
+```bash
+# XML output (default)
+ger abandon 12345
+
+# Human-readable output
+ger abandon 12345 --pretty
+
+# With reason
+ger abandon 12345 -m "Superseded by change 12346"
+```
+
+### Workspace Operations
+```bash
+# List workspace changes (XML output)
+ger workspace
+
+# Human-readable output
+ger workspace --pretty
+```
+
 ## LLM Integration Examples
 
 ### With Claude/ChatGPT

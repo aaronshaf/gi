@@ -4,7 +4,7 @@
   "module": "index.ts",
   "type": "module",
   "bin": {
-    "ger": "./src/cli/index.ts"
+    "ger": "./bin/ger"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
@@ -15,6 +15,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.1.5",
     "oxlint": "^1.12.0",
+    "react-devtools-core": "^6.1.5",
     "typescript": "^5.9.2"
   },
   "peerDependencies": {
@@ -27,13 +28,14 @@
     "@opentui/react": "^0.1.8",
     "commander": "^14.0.0",
     "effect": "^3.17.8",
-    "keytar": "^7.9.0",
+    "ink": "^6.2.2",
     "react": "^19.1.1"
   },
   "scripts": {
     "prepare": "husky",
     "dev": "bun run src/cli/index.ts",
-    "build": "bun build src/cli/index.ts --outdir=dist --target=bun --external=keytar",
+    "build": "bun build src/cli/index.ts --compile --outfile=bin/ger-binary",
+    "build:bundle": "bun build src/cli/index.ts --outdir=dist --target=bun",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:coverage:check": "bun scripts/check-coverage.ts",

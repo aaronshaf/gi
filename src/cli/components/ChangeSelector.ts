@@ -1,0 +1,190 @@
+import React, { useState } from 'react'
+import { Box, Text, useInput, useApp } from 'ink'
+import type { ChangeInfo } from '@/schemas/gerrit'
+
+interface ChangeSelectorProps {
+  changes: ChangeInfo[]
+  onSelect: (selectedChanges: ChangeInfo[]) => void
+  onCancel?: () => void
+}
+
+const colors = {
+  green: '\x1b[32m',
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  cyan: '\x1b[36m',
+  reset: '\x1b[0m'
+}
+
+const formatDate = (dateStr: string): string => {
+  const date = new Date(dateStr)
+  const now = new Date()
+  
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    })
+  }
+  
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: '2-digit' 
+    })
+  }
+  
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: '2-digit',
+    year: 'numeric'
+  })
+}
+
+const getStatusIndicator = (change: ChangeInfo): string => {
+  if (!change.labels) return ''
+  
+  const indicators: string[] = []
+  
+  if (change.labels['Code-Review']) {
+    const cr = change.labels['Code-Review']
+    if (cr.approved || cr.value === 2) {
+      indicators.push(`${colors.green}✅${colors.reset}`)
+    } else if (cr.rejected || cr.value === -2) {
+      indicators.push(`${colors.red}❌${colors.reset}`)
+    } else if (cr.recommended || cr.value === 1) {
+      indicators.push('👍')
+    } else if (cr.disliked || cr.value === -1) {
+      indicators.push('👎')
+    }
+  }
+  
+  if (change.labels['Verified']) {
+    const v = change.labels['Verified']
+    if (v.approved || v.value === 1) {
+      indicators.push(`${colors.green}✓${colors.reset}`)
+    } else if (v.rejected || v.value === -1) {
+      indicators.push(`${colors.red}✗${colors.reset}`)
+    }
+  }
+  
+  if (change.submittable) {
+    indicators.push('🚀')
+  }
+  
+  if (change.work_in_progress) {
+    indicators.push('🚧')
+  }
+  
+  return indicators.length > 0 ? indicators.join(' ') : ''
+}
+
+export const ChangeSelector = ({ changes, onSelect, onCancel }: ChangeSelectorProps) => {
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set())
+  const [cursorIndex, setCursorIndex] = useState(0)
+  const { exit } = useApp()
+
+  useInput((input, key) => {
+    if (input === 'q' || (key.ctrl && input === 'c')) {
+      if (onCancel) {
+        onCancel()
+      }
+      exit()
+      return
+    }
+
+    if (key.return) {
+      const selectedChanges = Array.from(selectedIndices).map(i => changes[i])
+      onSelect(selectedChanges)
+      return
+    }
+
+    if (key.upArrow) {
+      setCursorIndex(prev => Math.max(0, prev - 1))
+      return
+    }
+
+    if (key.downArrow) {
+      setCursorIndex(prev => Math.min(changes.length - 1, prev + 1))
+      return
+    }
+
+    if (input === ' ') {
+      setSelectedIndices(prev => {
+        const newSet = new Set(prev)
+        if (newSet.has(cursorIndex)) {
+          newSet.delete(cursorIndex)
+        } else {
+          newSet.add(cursorIndex)
+        }
+        return newSet
+      })
+      return
+    }
+
+    if (input === 'a') {
+      if (selectedIndices.size === changes.length) {
+        setSelectedIndices(new Set())
+      } else {
+        setSelectedIndices(new Set(changes.map((_, i) => i)))
+      }
+      return
+    }
+  })
+
+  if (changes.length === 0) {
+    return React.createElement(Box, { flexDirection: 'column' }, [
+      React.createElement(Text, { key: 'no-changes' }, 'No open changes found'),
+      React.createElement(Text, { key: 'exit-hint', dimColor: true }, 'Press q to exit')
+    ])
+  }
+
+  const changesByProject = changes.reduce((acc, change, index) => {
+    if (!acc[change.project]) {
+      acc[change.project] = []
+    }
+    acc[change.project].push({ change, index })
+    return acc
+  }, {} as Record<string, Array<{ change: ChangeInfo; index: number }>>)
+
+  const sortedProjects = Object.keys(changesByProject).sort()
+
+  const projectElements = sortedProjects.map(project => 
+    React.createElement(Box, { key: project, flexDirection: 'column', marginBottom: 1 }, [
+      React.createElement(Text, { key: `${project}-title`, color: 'blue', bold: true }, project),
+      ...changesByProject[project].map(({ change, index }) => {
+        const isSelected = selectedIndices.has(index)
+        const isCursor = cursorIndex === index
+        const status = getStatusIndicator(change)
+        const statusPrefix = status ? status + ' ' : ''
+        const dateStr = change.updated ? ` (${formatDate(change.updated)})` : ''
+        
+        return React.createElement(Box, { key: `${project}-${change._number}`, paddingLeft: 2 },
+          React.createElement(Text, { color: isCursor ? 'cyan' : undefined },
+            `${isCursor ? '▶ ' : '  '}[${isSelected ? '✓' : ' '}] ${statusPrefix}${change._number}: ${change.subject}${dateStr}`
+          )
+        )
+      })
+    ])
+  )
+
+  return React.createElement(Box, { flexDirection: 'column' }, [
+    React.createElement(Box, { key: 'header', marginBottom: 1 },
+      React.createElement(Text, { bold: true }, 'Select changes to abandon:')
+    ),
+    ...projectElements,
+    React.createElement(Box, { key: 'footer', marginTop: 1, flexDirection: 'column' }, [
+      React.createElement(Text, { key: 'nav-help', dimColor: true },
+        '↑/↓: Navigate | Space: Toggle selection | a: Select/deselect all'
+      ),
+      React.createElement(Text, { key: 'action-help', dimColor: true },
+        'Enter: Abandon selected | q/Ctrl+C: Cancel'
+      ),
+      React.createElement(Text, { key: 'selection-count', dimColor: true },
+        `${selectedIndices.size} of ${changes.length} selected`
+      )
+    ])
+  ])
+}
