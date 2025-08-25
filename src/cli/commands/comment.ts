@@ -10,7 +10,7 @@ interface CommentOptions {
 export const commentCommand = (
   changeId: string,
   options: CommentOptions,
-) =>
+): Effect.Effect<void, any, GerritApiService> =>
   Effect.gen(function* () {
     const message = options.message
 

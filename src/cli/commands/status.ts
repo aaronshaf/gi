@@ -5,7 +5,7 @@ interface StatusOptions {
   xml?: boolean
 }
 
-export const statusCommand = (options: StatusOptions) =>
+export const statusCommand = (options: StatusOptions): Effect.Effect<void, Error, GerritApiService> =>
   Effect.gen(function* () {
     const apiService = yield* GerritApiService
     

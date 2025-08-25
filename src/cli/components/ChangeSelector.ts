@@ -10,7 +10,7 @@ interface ChangeSelectorProps {
 }
 
 
-export const ChangeSelector = ({ changes, onSelect, onCancel }: ChangeSelectorProps) => {
+export const ChangeSelector = ({ changes, onSelect, onCancel }: ChangeSelectorProps): React.ReactElement => {
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set())
   const [cursorIndex, setCursorIndex] = useState(0)
   const { exit } = useApp()

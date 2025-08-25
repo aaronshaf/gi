@@ -9,7 +9,7 @@ interface MineOptions {
 
 // ANSI color codes
 
-export const mineCommand = (options: MineOptions) =>
+export const mineCommand = (options: MineOptions): Effect.Effect<void, any, GerritApiService> =>
   Effect.gen(function* () {
     const gerritApi = yield* GerritApiService
     
