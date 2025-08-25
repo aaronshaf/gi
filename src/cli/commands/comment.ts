@@ -1,10 +1,121 @@
-import { Effect } from 'effect'
+import { Effect, pipe } from 'effect'
+import { Schema } from '@effect/schema'
 import { ApiError, GerritApiService } from '@/api/gerrit'
-import type { ReviewInput } from '@/schemas/gerrit'
+import type { ReviewInput, ChangeInfo } from '@/schemas/gerrit'
 
 interface CommentOptions {
   message?: string
-  pretty?: boolean
+  xml?: boolean
+  file?: string
+  line?: number
+  unresolved?: boolean
+  batch?: boolean
+}
+
+// Schema for batch input validation
+const BatchCommentSchema = Schema.Struct({
+  message: Schema.optional(Schema.String),
+  comments: Schema.Array(
+    Schema.Struct({
+      file: Schema.String,
+      line: Schema.Number,
+      message: Schema.String,
+      unresolved: Schema.optional(Schema.Boolean),
+    })
+  )
+})
+
+type BatchCommentInput = Schema.Schema.Type<typeof BatchCommentSchema>
+
+// Effect-ified stdin reader
+const readStdin = Effect.async<string, Error>((callback) => {
+  let data = ''
+  
+  const onData = (chunk: any) => { data += chunk }
+  const onEnd = () => callback(Effect.succeed(data))
+  const onError = (error: Error) => callback(Effect.fail(new Error(`Failed to read stdin: ${error.message}`)))
+  
+  process.stdin.on('data', onData)
+  process.stdin.on('end', onEnd)
+  process.stdin.on('error', onError)
+  
+  // Cleanup function
+  return Effect.sync(() => {
+    process.stdin.removeListener('data', onData)
+    process.stdin.removeListener('end', onEnd)
+    process.stdin.removeListener('error', onError)
+  })
+})
+
+// Helper to parse JSON with better error handling
+const parseJson = (data: string): Effect.Effect<unknown, Error> =>
+  Effect.try({
+    try: () => JSON.parse(data),
+    catch: (error) => new Error(`Invalid JSON input: ${error instanceof Error ? error.message : 'parse error'}`)
+  })
+
+// Helper to build ReviewInput from batch data
+const buildBatchReview = (batchInput: BatchCommentInput): ReviewInput => {
+  const commentsByFile = batchInput.comments.reduce<Record<string, Array<{ line?: number; message: string; unresolved?: boolean }>>>(
+    (acc, comment) => {
+      if (!acc[comment.file]) {
+        acc[comment.file] = []
+      }
+      acc[comment.file].push({
+        line: comment.line,
+        message: comment.message,
+        unresolved: comment.unresolved
+      })
+      return acc
+    },
+    {}
+  )
+  
+  return {
+    message: batchInput.message,
+    comments: commentsByFile
+  }
+}
+
+// Create ReviewInput based on options
+const createReviewInput = (options: CommentOptions): Effect.Effect<ReviewInput, Error> => {
+  // Batch mode
+  if (options.batch) {
+    return pipe(
+      readStdin,
+      Effect.flatMap(parseJson),
+      Effect.flatMap(
+        Schema.decodeUnknown(BatchCommentSchema, {
+          errors: 'all',
+          onExcessProperty: 'ignore'
+        })
+      ),
+      Effect.mapError(() => 
+        new Error('Invalid batch input format. Expected: {"message": "...", "comments": [{"file": "...", "line": ..., "message": "..."}]}')
+      ),
+      Effect.map(buildBatchReview)
+    )
+  }
+  
+  // Line comment mode
+  if (options.file && options.line) {
+    return options.message
+      ? Effect.succeed({
+          comments: {
+            [options.file]: [{
+              line: options.line,
+              message: options.message,
+              unresolved: options.unresolved
+            }]
+          }
+        })
+      : Effect.fail(new Error('Message is required for line comments. Use -m "your message"'))
+  }
+  
+  // Overall comment mode
+  return options.message
+    ? Effect.succeed({ message: options.message })
+    : Effect.fail(new Error('Message is required. Use -m "your message"'))
 }
 
 export const commentCommand = (
@@ -12,45 +123,112 @@ export const commentCommand = (
   options: CommentOptions,
 ): Effect.Effect<void, ApiError | Error, GerritApiService> =>
   Effect.gen(function* () {
-    const message = options.message
-
-    if (!message) {
-      yield* Effect.fail(new Error('Message is required. Use -m "your message"'))
-    }
-
     const apiService = yield* GerritApiService
-
-    // Get change info first
-    const change = yield* apiService.getChange(changeId).pipe(
-      Effect.catchTag('ApiError', (error) =>
-        Effect.fail(new Error(`Failed to get change: ${error.message}`))
+    
+    // Build the review input
+    const review = yield* createReviewInput(options)
+    
+    // Execute the API calls in sequence
+    const change = yield* pipe(
+      apiService.getChange(changeId),
+      Effect.mapError((error) => 
+        error._tag === 'ApiError' 
+          ? new Error(`Failed to get change: ${error.message}`)
+          : error
+      )
+    )
+    
+    yield* pipe(
+      apiService.postReview(changeId, review),
+      Effect.mapError((error) =>
+        error._tag === 'ApiError'
+          ? new Error(`Failed to post comment: ${error.message}`)
+          : error
       )
     )
 
-    // Post the review
-    const review: ReviewInput = { message }
-    yield* apiService.postReview(changeId, review).pipe(
-      Effect.catchTag('ApiError', (error) =>
-        Effect.fail(new Error(`Failed to post comment: ${error.message}`))
-      )
-    )
+    // Format and display output
+    yield* formatOutput(change, review, options, changeId)
+  })
 
-    // Output result
-    if (options.pretty) {
-      // Human-readable output
-      console.log(`✓ Comment posted successfully!`)
-      console.log(`Change: ${change.subject} (${change.status})`)
-      console.log(`Message: ${message}`)
+// Helper to format XML output
+const formatXmlOutput = (
+  change: ChangeInfo,
+  review: ReviewInput,
+  options: CommentOptions,
+  changeId: string
+): Effect.Effect<void> =>
+  Effect.sync(() => {
+    const lines: string[] = [
+      `<?xml version="1.0" encoding="UTF-8"?>`,
+      `<comment_result>`,
+      `  <status>success</status>`,
+      `  <change_id>${changeId}</change_id>`,
+      `  <change_number>${change._number}</change_number>`,
+      `  <change_subject><![CDATA[${change.subject}]]></change_subject>`,
+      `  <change_status>${change.status}</change_status>`
+    ]
+    
+    if (options.batch && review.comments) {
+      lines.push(`  <comments>`)
+      for (const [file, comments] of Object.entries(review.comments)) {
+        for (const comment of comments) {
+          lines.push(`    <comment>`)
+          lines.push(`      <file>${file}</file>`)
+          if (comment.line) lines.push(`      <line>${comment.line}</line>`)
+          lines.push(`      <message><![CDATA[${comment.message}]]></message>`)
+          if (comment.unresolved) lines.push(`      <unresolved>true</unresolved>`)
+          lines.push(`    </comment>`)
+        }
+      }
+      lines.push(`  </comments>`)
+    } else if (options.file && options.line) {
+      lines.push(`  <comment>`)
+      lines.push(`    <file>${options.file}</file>`)
+      lines.push(`    <line>${options.line}</line>`)
+      lines.push(`    <message><![CDATA[${options.message}]]></message>`)
+      if (options.unresolved) lines.push(`    <unresolved>true</unresolved>`)
+      lines.push(`  </comment>`)
     } else {
-      // XML output for LLM consumption
-      console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
-      console.log(`<comment_result>`)
-      console.log(`  <status>success</status>`)
-      console.log(`  <change_id>${changeId}</change_id>`)
-      console.log(`  <change_number>${change._number}</change_number>`)
-      console.log(`  <change_subject><![CDATA[${change.subject}]]></change_subject>`)
-      console.log(`  <change_status>${change.status}</change_status>`)
-      console.log(`  <message><![CDATA[${message}]]></message>`)
-      console.log(`</comment_result>`)
+      lines.push(`  <message><![CDATA[${options.message}]]></message>`)
+    }
+    
+    lines.push(`</comment_result>`)
+    lines.forEach(line => console.log(line))
+  })
+
+// Helper to format human-readable output
+const formatHumanOutput = (
+  change: ChangeInfo,
+  review: ReviewInput,
+  options: CommentOptions
+): Effect.Effect<void> =>
+  Effect.sync(() => {
+    console.log(`✓ Comment posted successfully!`)
+    console.log(`Change: ${change.subject} (${change.status})`)
+    
+    if (options.batch && review.comments) {
+      const totalComments = Object.values(review.comments).reduce(
+        (sum, comments) => sum + comments.length,
+        0
+      )
+      console.log(`Posted ${totalComments} line comment(s)`)
+    } else if (options.file && options.line) {
+      console.log(`File: ${options.file}, Line: ${options.line}`)
+      console.log(`Message: ${options.message}`)
+      if (options.unresolved) console.log(`Status: Unresolved`)
+    } else {
+      console.log(`Message: ${options.message}`)
     }
   })
+
+// Main output formatter
+const formatOutput = (
+  change: ChangeInfo,
+  review: ReviewInput,
+  options: CommentOptions,
+  changeId: string
+): Effect.Effect<void> =>
+  options.xml
+    ? formatXmlOutput(change, review, options, changeId)
+    : formatHumanOutput(change, review, options)
