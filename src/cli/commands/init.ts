@@ -75,7 +75,7 @@ const readExistingConfig = (): GerritCredentials | null => {
       const content = fs.readFileSync(CONFIG_FILE, 'utf8')
       return JSON.parse(content)
     }
-  } catch (e) {
+  } catch {
     // Ignore errors
   }
   return null

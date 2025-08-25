@@ -28,7 +28,7 @@ const readFileConfig = (): GerritCredentials | null => {
       const content = fs.readFileSync(CONFIG_FILE, 'utf8')
       return JSON.parse(content)
     }
-  } catch (e) {
+  } catch {
     // Ignore errors
   }
   return null
@@ -50,7 +50,7 @@ const deleteFileConfig = (): void => {
     if (fs.existsSync(CONFIG_FILE)) {
       fs.unlinkSync(CONFIG_FILE)
     }
-  } catch (e) {
+  } catch {
     // Ignore errors
   }
 }
@@ -85,7 +85,7 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
         // Use file-based storage
         try {
           writeFileConfig(validatedCredentials)
-        } catch (e) {
+        } catch {
           yield* Effect.fail(new ConfigError({ message: 'Failed to save credentials to file' }))
         }
       })
@@ -94,7 +94,7 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
       // Delete file config
       try {
         deleteFileConfig()
-      } catch (e) {
+      } catch {
         // Ignore errors
       }
     })

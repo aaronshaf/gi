@@ -29,8 +29,8 @@ program
         Effect.provide(ConfigServiceLive)
       )
       await Effect.runPromise(effect)
-    } catch (error: any) {
-      console.error('Error:', error.message || error)
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error))
       process.exit(1)
     }
   })
@@ -47,8 +47,8 @@ program
         Effect.provide(ConfigServiceLive)
       )
       await Effect.runPromise(effect)
-    } catch (error: any) {
-      console.error('Error:', error.message || error)
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error))
       process.exit(1)
     }
   })
@@ -66,15 +66,15 @@ program
         Effect.provide(ConfigServiceLive)
       )
       await Effect.runPromise(effect)
-    } catch (error: any) {
+    } catch (error) {
       if (options.xml) {
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<comment_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error.message || error}]]></error>`)
+        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
         console.log(`</comment_result>`)
       } else {
-        console.error('✗ Error:', error.message || error)
+        console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       }
       process.exit(1)
     }
@@ -95,15 +95,15 @@ program
         Effect.provide(ConfigServiceLive)
       )
       await Effect.runPromise(effect)
-    } catch (error: any) {
+    } catch (error) {
       if (options.xml) {
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<diff_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error.message || error}]]></error>`)
+        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
         console.log(`</diff_result>`)
       } else {
-        console.error('✗ Error:', error.message || error)
+        console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       }
       process.exit(1)
     }
@@ -121,15 +121,15 @@ program
         Effect.provide(ConfigServiceLive)
       )
       await Effect.runPromise(effect)
-    } catch (error: any) {
+    } catch (error) {
       if (options.xml) {
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<mine_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error.message || error}]]></error>`)
+        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
         console.log(`</mine_result>`)
       } else {
-        console.error('✗ Error:', error.message || error)
+        console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       }
       process.exit(1)
     }
@@ -147,15 +147,15 @@ program
         Effect.provide(ConfigServiceLive)
       )
       await Effect.runPromise(effect)
-    } catch (error: any) {
+    } catch (error) {
       if (options.xml) {
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<workspace_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error.message || error}]]></error>`)
+        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
         console.log(`</workspace_result>`)
       } else {
-        console.error('✗ Error:', error.message || error)
+        console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       }
       process.exit(1)
     }
@@ -174,15 +174,15 @@ program
         Effect.provide(ConfigServiceLive)
       )
       await Effect.runPromise(effect)
-    } catch (error: any) {
+    } catch (error) {
       if (options.xml) {
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<abandon_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error.message || error}]]></error>`)
+        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
         console.log(`</abandon_result>`)
       } else {
-        console.error('✗ Error:', error.message || error)
+        console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       }
       process.exit(1)
     }
