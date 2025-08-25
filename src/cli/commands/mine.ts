@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { GerritApiService } from '@/api/gerrit'
+import { ApiError, GerritApiService } from '@/api/gerrit'
 import type { ChangeInfo } from '@/schemas/gerrit'
 import { formatDate, getStatusIndicator, colors } from '@/utils/formatters'
 
@@ -9,7 +9,7 @@ interface MineOptions {
 
 // ANSI color codes
 
-export const mineCommand = (options: MineOptions): Effect.Effect<void, any, GerritApiService> =>
+export const mineCommand = (options: MineOptions): Effect.Effect<void, ApiError, GerritApiService> =>
   Effect.gen(function* () {
     const gerritApi = yield* GerritApiService
     
