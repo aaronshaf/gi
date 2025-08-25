@@ -8,10 +8,10 @@ bun tsc --noEmit
 echo "Running tests with coverage check..."
 bun run test:coverage:check
 
-# Run linters
+# Run linters and formatter
 echo "Running linters..."
 bun oxlint src/ tests/
-bun biome check src/ tests/
+bun biome format --write src/ tests/
 
 # Check file sizes
 echo "Checking file sizes..."

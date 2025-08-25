@@ -3,37 +3,37 @@ import type { ChangeInfo } from '@/schemas/gerrit'
 export const formatDate = (dateStr: string): string => {
   const date = new Date(dateStr)
   const now = new Date()
-  
+
   // Check if today
   if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true,
     })
   }
-  
+
   // Check if this year
   if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: '2-digit' 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: '2-digit',
     })
   }
-  
+
   // Otherwise show full date
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
     day: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
   })
 }
 
 export const getStatusIndicator = (change: ChangeInfo): string => {
   if (!change.labels) return ''
-  
+
   const indicators: string[] = []
-  
+
   // Check for Code-Review
   if (change.labels['Code-Review']) {
     const cr = change.labels['Code-Review']
@@ -47,27 +47,27 @@ export const getStatusIndicator = (change: ChangeInfo): string => {
       indicators.push('👎')
     }
   }
-  
+
   // Check for Verified
-  if (change.labels['Verified']) {
-    const v = change.labels['Verified']
+  if (change.labels.Verified) {
+    const v = change.labels.Verified
     if (v.approved || v.value === 1) {
       indicators.push(`${colors.green}✓${colors.reset}`)
     } else if (v.rejected || v.value === -1) {
       indicators.push(`${colors.red}✗${colors.reset}`)
     }
   }
-  
+
   // Check if submittable
   if (change.submittable) {
     indicators.push('🚀')
   }
-  
+
   // Check if WIP
   if (change.work_in_progress) {
     indicators.push('🚧')
   }
-  
+
   return indicators.length > 0 ? indicators.join(' ') : ''
 }
 

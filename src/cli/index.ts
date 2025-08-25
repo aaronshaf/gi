@@ -4,22 +4,19 @@ import { Command } from 'commander'
 import { Effect } from 'effect'
 import { GerritApiServiceLive } from '@/api/gerrit'
 import { ConfigServiceLive } from '@/services/config'
-import { commentCommand } from './commands/comment'
-import { initCommand } from './commands/init'
-import { statusCommand } from './commands/status'
-import { diffCommand } from './commands/diff'
-import { mineCommand } from './commands/mine'
-import { incomingCommand } from './commands/incoming'
-import { workspaceCommand } from './commands/workspace'
 import { abandonCommand } from './commands/abandon'
+import { commentCommand } from './commands/comment'
 import { commentsCommand } from './commands/comments'
+import { diffCommand } from './commands/diff'
+import { incomingCommand } from './commands/incoming'
+import { initCommand } from './commands/init'
+import { mineCommand } from './commands/mine'
+import { statusCommand } from './commands/status'
+import { workspaceCommand } from './commands/workspace'
 
 const program = new Command()
 
-program
-  .name('ger')
-  .description('LLM-centric Gerrit CLI tool')
-  .version('0.1.0')
+program.name('ger').description('LLM-centric Gerrit CLI tool').version('0.1.0')
 
 // init command
 program
@@ -27,9 +24,7 @@ program
   .description('Initialize Gerrit credentials')
   .action(async () => {
     try {
-      const effect = initCommand().pipe(
-        Effect.provide(ConfigServiceLive)
-      )
+      const effect = initCommand().pipe(Effect.provide(ConfigServiceLive))
       await Effect.runPromise(effect)
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error))
@@ -46,7 +41,7 @@ program
     try {
       const effect = statusCommand(options).pipe(
         Effect.provide(GerritApiServiceLive),
-        Effect.provide(ConfigServiceLive)
+        Effect.provide(ConfigServiceLive),
       )
       await Effect.runPromise(effect)
     } catch (error) {
@@ -61,11 +56,17 @@ program
   .description('Post a comment on a change')
   .option('-m, --message <message>', 'Comment message')
   .option('--file <file>', 'File path for line-specific comment (relative to repo root)')
-  .option('--line <line>', 'Line number in the NEW version of the file (not diff line numbers)', parseInt)
+  .option(
+    '--line <line>',
+    'Line number in the NEW version of the file (not diff line numbers)',
+    parseInt,
+  )
   .option('--unresolved', 'Mark comment as unresolved (requires human attention)')
   .option('--batch', 'Read batch comments from stdin as JSON (see examples below)')
   .option('--xml', 'XML output for LLM consumption')
-  .addHelpText('after', `
+  .addHelpText(
+    'after',
+    `
 Examples:
   # Post a general comment on a change
   $ ger comment 12345 -m "Looks good to me!"
@@ -84,12 +85,13 @@ Examples:
 
 Note: Line numbers refer to the actual line numbers in the NEW version of the file,
       NOT the line numbers shown in the diff view. To find the correct line number,
-      look at the file after all changes have been applied.`)
+      look at the file after all changes have been applied.`,
+  )
   .action(async (changeId, options) => {
     try {
       const effect = commentCommand(changeId, options).pipe(
         Effect.provide(GerritApiServiceLive),
-        Effect.provide(ConfigServiceLive)
+        Effect.provide(ConfigServiceLive),
       )
       await Effect.runPromise(effect)
     } catch (error) {
@@ -97,7 +99,9 @@ Note: Line numbers refer to the actual line numbers in the NEW version of the fi
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<comment_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
+        console.log(
+          `  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`,
+        )
         console.log(`</comment_result>`)
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))
@@ -118,7 +122,7 @@ program
     try {
       const effect = diffCommand(changeId, options).pipe(
         Effect.provide(GerritApiServiceLive),
-        Effect.provide(ConfigServiceLive)
+        Effect.provide(ConfigServiceLive),
       )
       await Effect.runPromise(effect)
     } catch (error) {
@@ -126,7 +130,9 @@ program
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<diff_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
+        console.log(
+          `  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`,
+        )
         console.log(`</diff_result>`)
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))
@@ -144,7 +150,7 @@ program
     try {
       const effect = mineCommand(options).pipe(
         Effect.provide(GerritApiServiceLive),
-        Effect.provide(ConfigServiceLive)
+        Effect.provide(ConfigServiceLive),
       )
       await Effect.runPromise(effect)
     } catch (error) {
@@ -152,7 +158,9 @@ program
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<mine_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
+        console.log(
+          `  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`,
+        )
         console.log(`</mine_result>`)
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))
@@ -170,7 +178,7 @@ program
     try {
       const effect = workspaceCommand(changeId, options).pipe(
         Effect.provide(GerritApiServiceLive),
-        Effect.provide(ConfigServiceLive)
+        Effect.provide(ConfigServiceLive),
       )
       await Effect.runPromise(effect)
     } catch (error) {
@@ -178,7 +186,9 @@ program
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<workspace_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
+        console.log(
+          `  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`,
+        )
         console.log(`</workspace_result>`)
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))
@@ -225,7 +235,7 @@ program
     try {
       const effect = abandonCommand(changeId, options).pipe(
         Effect.provide(GerritApiServiceLive),
-        Effect.provide(ConfigServiceLive)
+        Effect.provide(ConfigServiceLive),
       )
       await Effect.runPromise(effect)
     } catch (error) {
@@ -233,7 +243,9 @@ program
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<abandon_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
+        console.log(
+          `  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`,
+        )
         console.log(`</abandon_result>`)
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))
@@ -251,7 +263,7 @@ program
     try {
       const effect = commentsCommand(changeId, options).pipe(
         Effect.provide(GerritApiServiceLive),
-        Effect.provide(ConfigServiceLive)
+        Effect.provide(ConfigServiceLive),
       )
       await Effect.runPromise(effect)
     } catch (error) {
@@ -259,7 +271,9 @@ program
         console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
         console.log(`<comments_result>`)
         console.log(`  <status>error</status>`)
-        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
+        console.log(
+          `  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`,
+        )
         console.log(`</comments_result>`)
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))

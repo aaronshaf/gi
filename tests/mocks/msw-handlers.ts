@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw'
+import { HttpResponse, http } from 'msw'
 import type { CommentInfo } from '@/schemas/gerrit'
 
 export const commentHandlers = [
@@ -53,10 +53,7 @@ export const commentHandlers = [
     const mockDiff = {
       content: [
         {
-          ab: [
-            'function calculateTotal(items) {',
-            '  let total = 0;',
-          ],
+          ab: ['function calculateTotal(items) {', '  let total = 0;'],
         },
         {
           b: [
@@ -67,10 +64,7 @@ export const commentHandlers = [
           ],
         },
         {
-          ab: [
-            '  return total;',
-            '}',
-          ],
+          ab: ['  return total;', '}'],
         },
       ],
     }
