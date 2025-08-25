@@ -15,7 +15,7 @@ export const generateMockChange = (
     updated: '2023-12-01 15:30:00.000000000',
     insertions: 25,
     deletions: 3,
-    number: 12345,
+    _number: 12345,
     owner: {
       _account_id: 1000096,
       name: 'John Developer',
