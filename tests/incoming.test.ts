@@ -1,11 +1,10 @@
-import { describe, expect, it, beforeAll, afterAll, beforeEach, afterEach, mock } from 'bun:test'
-import { Effect } from 'effect'
-import { incomingCommand } from '@/cli/commands/incoming'
-import { GerritApiServiceLive } from '@/api/gerrit'
-import { ConfigService } from '@/services/config'
-import { Layer } from 'effect'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { Effect, Layer } from 'effect'
+import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
-import { http, HttpResponse } from 'msw'
+import { GerritApiServiceLive } from '@/api/gerrit'
+import { incomingCommand } from '@/cli/commands/incoming'
+import { ConfigService } from '@/services/config'
 
 // Create MSW server
 const server = setupServer(

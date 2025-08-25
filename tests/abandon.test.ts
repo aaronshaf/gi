@@ -1,8 +1,4 @@
-import { describe, expect, it, beforeEach, mock } from 'bun:test'
-import { Effect } from 'effect'
-import { abandonCommand } from '@/cli/commands/abandon'
-import { GerritApiService } from '@/api/gerrit'
-import { ConfigService } from '@/services/config'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { ChangeInfo } from '@/schemas/gerrit'
 
 const mockChange: ChangeInfo = {
@@ -18,38 +14,41 @@ const mockChange: ChangeInfo = {
   owner: {
     _account_id: 1000,
     name: 'Test User',
-    email: 'test@example.com'
+    email: 'test@example.com',
   },
   labels: {
     'Code-Review': {
-      value: 0
+      value: 0,
     },
-    'Verified': {
-      value: 0
-    }
+    Verified: {
+      value: 0,
+    },
   },
   work_in_progress: false,
-  submittable: false
+  submittable: false,
 }
 
 describe('abandon command', () => {
-  let mockFetch: any
+  let mockFetch: ReturnType<typeof mock>
 
   beforeEach(() => {
     // Reset fetch mock for each test
-    mockFetch = mock(() => Promise.resolve({
-      ok: true,
-      status: 200,
-      text: () => Promise.resolve(')]}\n{}')
-    }))
-    global.fetch = mockFetch
+    mockFetch = mock(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(')]}\n{}'),
+      }),
+    )
+    global.fetch = mockFetch as unknown as typeof fetch
   })
 
   it('should call abandon API endpoint with correct parameters', async () => {
     // Mock successful responses
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: async () => `)]}'
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => `)]}'
 {
   "id": "test-project~master~I123",
   "project": "test-project",
@@ -58,31 +57,29 @@ describe('abandon command', () => {
   "subject": "Test change to abandon",
   "status": "NEW",
   "_number": 12345
-}`
-    }).mockResolvedValueOnce({
-      ok: true,
-      text: async () => ')]}\n{}'
-    })
+}`,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => ')]}\n{}',
+      })
 
     // Note: This is a unit test demonstrating the API calls
     // Actual integration would require running the full command
     // which we avoid to prevent hitting production
-    
+
     // Verify the mock setup
     const response = await mockFetch('https://test.gerrit.com/a/changes/12345')
     const text = await response.text()
     expect(text).toContain('Test change to abandon')
-    
+
     // Verify abandon endpoint would be called
-    const abandonResponse = await mockFetch(
-      'https://test.gerrit.com/a/changes/12345/abandon',
-      {
-        method: 'POST',
-        body: JSON.stringify({ message: 'No longer needed' })
-      }
-    )
+    const abandonResponse = await mockFetch('https://test.gerrit.com/a/changes/12345/abandon', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'No longer needed' }),
+    })
     expect(abandonResponse.ok).toBe(true)
-    
+
     // Verify calls were made
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
@@ -90,38 +87,32 @@ describe('abandon command', () => {
   it('should handle abandon without message', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      text: async () => ')]}\n{}'
+      text: async () => ')]}\n{}',
     })
 
-    const response = await mockFetch(
-      'https://test.gerrit.com/a/changes/12345/abandon',
-      {
-        method: 'POST',
-        body: JSON.stringify({})
-      }
-    )
-    
+    const response = await mockFetch('https://test.gerrit.com/a/changes/12345/abandon', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+
     expect(response.ok).toBe(true)
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://test.gerrit.com/a/changes/12345/abandon',
-      {
-        method: 'POST',
-        body: JSON.stringify({})
-      }
-    )
+    expect(mockFetch).toHaveBeenCalledWith('https://test.gerrit.com/a/changes/12345/abandon', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
   })
 
   it('should handle API errors', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 404,
-      text: async () => 'Change not found'
+      text: async () => 'Change not found',
     })
 
     const response = await mockFetch('https://test.gerrit.com/a/changes/99999/abandon')
     expect(response.ok).toBe(false)
     expect(response.status).toBe(404)
-    
+
     const errorText = await response.text()
     expect(errorText).toBe('Change not found')
   })
@@ -131,9 +122,9 @@ describe('abandon command', () => {
       { input: undefined, expected: {} },
       { input: '', expected: {} },
       { input: 'Abandoning this change', expected: { message: 'Abandoning this change' } },
-      { input: 'Multi\nline\nmessage', expected: { message: 'Multi\nline\nmessage' } }
+      { input: 'Multi\nline\nmessage', expected: { message: 'Multi\nline\nmessage' } },
     ]
-    
+
     for (const testCase of testCases) {
       const body = testCase.input ? { message: testCase.input } : {}
       expect(body).toEqual(testCase.expected)
@@ -144,11 +135,13 @@ describe('abandon command', () => {
     it('should fetch changes for interactive mode', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => `)]}'\n[${JSON.stringify(mockChange)}]`
+        text: async () => `)]}'\n[${JSON.stringify(mockChange)}]`,
       })
 
       // Test the API call pattern for interactive mode
-      const response = await mockFetch('https://test.gerrit.com/a/changes/?q=owner:self+status:open')
+      const response = await mockFetch(
+        'https://test.gerrit.com/a/changes/?q=owner:self+status:open',
+      )
       const text = await response.text()
       expect(text).toContain('Test change to abandon')
     })
@@ -156,10 +149,12 @@ describe('abandon command', () => {
     it('should handle empty changes list response', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => ")]}'\n[]"
+        text: async () => ")]}'\n[]",
       })
 
-      const response = await mockFetch('https://test.gerrit.com/a/changes/?q=owner:self+status:open')
+      const response = await mockFetch(
+        'https://test.gerrit.com/a/changes/?q=owner:self+status:open',
+      )
       const text = await response.text()
       const parsed = JSON.parse(text.replace(")]}'\n", ''))
       expect(parsed).toEqual([])
