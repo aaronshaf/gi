@@ -26,6 +26,7 @@
     "@effect/platform": "^0.90.6",
     "@effect/platform-node": "^0.94.2",
     "@effect/schema": "^0.75.5",
+    "cli-table3": "^0.6.5",
     "commander": "^14.0.0",
     "effect": "^3.17.8",
     "ink": "^6.2.2",

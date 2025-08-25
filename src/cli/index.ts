@@ -9,6 +9,7 @@ import { initCommand } from './commands/init'
 import { statusCommand } from './commands/status'
 import { diffCommand } from './commands/diff'
 import { mineCommand } from './commands/mine'
+import { incomingCommand } from './commands/incoming'
 import { workspaceCommand } from './commands/workspace'
 import { abandonCommand } from './commands/abandon'
 import { commentsCommand } from './commands/comments'
@@ -155,6 +156,34 @@ program
         console.log(`  <status>error</status>`)
         console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
         console.log(`</workspace_result>`)
+      } else {
+        console.error('✗ Error:', error instanceof Error ? error.message : String(error))
+      }
+      process.exit(1)
+    }
+  })
+
+// incoming command
+program
+  .command('incoming')
+  .description('Show incoming changes for review (where you are a reviewer)')
+  .option('--xml', 'XML output for LLM consumption')
+  .action(async (options) => {
+    try {
+      const effect = incomingCommand(options).pipe(
+        Effect.provide(GerritApiServiceLive),
+        Effect.provide(ConfigServiceLive),
+      )
+      await Effect.runPromise(effect)
+    } catch (error) {
+      if (options.xml) {
+        console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
+        console.log(`<incoming_result>`)
+        console.log(`  <status>error</status>`)
+        console.log(
+          `  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`,
+        )
+        console.log(`</incoming_result>`)
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       }
