@@ -1,5 +1,5 @@
-import { formatDate, colors } from './formatters'
 import type { CommentInfo } from '@/schemas/gerrit'
+import { colors, formatDate } from './formatters'
 
 export interface CommentWithContext {
   comment: CommentInfo
@@ -15,28 +15,28 @@ export const formatCommentsPretty = (comments: CommentWithContext[]): void => {
     console.log('No comments found on this change')
     return
   }
-  
+
   console.log(`Found ${comments.length} comment${comments.length === 1 ? '' : 's'}:\n`)
-  
+
   let currentPath: string | undefined
-  
+
   for (const { comment, context } of comments) {
     // Group by file
     if (comment.path !== currentPath) {
       currentPath = comment.path
       console.log(`${colors.blue}═══ ${currentPath} ═══${colors.reset}`)
     }
-    
+
     // Comment metadata
     const author = comment.author?.name || 'Unknown'
     const date = comment.updated ? formatDate(comment.updated) : ''
     const status = comment.unresolved ? `${colors.yellow}[UNRESOLVED]${colors.reset} ` : ''
-    
+
     console.log(`\n${status}${colors.dim}${author} • ${date}${colors.reset}`)
-    
+
     if (comment.line) {
       console.log(`${colors.dim}Line ${comment.line}:${colors.reset}`)
-      
+
       // Show context if available
       if (context && (context.before.length > 0 || context.line || context.after.length > 0)) {
         console.log(`${colors.dim}───────────────────${colors.reset}`)
@@ -52,7 +52,7 @@ export const formatCommentsPretty = (comments: CommentWithContext[]): void => {
         console.log(`${colors.dim}───────────────────${colors.reset}`)
       }
     }
-    
+
     // Comment message (indent each line)
     const messageLines = comment.message.split('\n')
     for (const line of messageLines) {
@@ -77,7 +77,7 @@ export const formatCommentsXml = (changeId: string, comments: CommentWithContext
   console.log(`  <change_id>${escapeXml(changeId)}</change_id>`)
   console.log(`  <comment_count>${comments.length}</comment_count>`)
   console.log(`  <comments>`)
-  
+
   for (const { comment, context } of comments) {
     console.log(`    <comment>`)
     console.log(`      <id>${escapeXml(comment.id)}</id>`)
@@ -122,7 +122,7 @@ export const formatCommentsXml = (changeId: string, comments: CommentWithContext
       console.log(`      <in_reply_to>${escapeXml(comment.in_reply_to)}</in_reply_to>`)
     }
     console.log(`      <message><![CDATA[${comment.message}]]></message>`)
-    
+
     if (context && (context.before.length > 0 || context.line || context.after.length > 0)) {
       console.log(`      <diff_context>`)
       if (context.before.length > 0) {
@@ -144,10 +144,10 @@ export const formatCommentsXml = (changeId: string, comments: CommentWithContext
       }
       console.log(`      </diff_context>`)
     }
-    
+
     console.log(`    </comment>`)
   }
-  
+
   console.log(`  </comments>`)
   console.log(`</comments_result>`)
 }

@@ -14,29 +14,30 @@ const mockFiles = generateMockFiles()
 const mockDiff = generateMockFileDiff()
 const mockAccount = generateMockAccount()
 
-// Keep the old mockChange definition for now as backup
-const _mockChange: Schema.Schema.Type<typeof ChangeInfo> = {
-  id: 'myProject~master~I8473b95934b5732ac55d26311a706c9c2bde9940',
-  project: 'myProject',
-  branch: 'master',
-  change_id: 'I8473b95934b5732ac55d26311a706c9c2bde9940',
-  subject: 'Implementing new feature',
-  status: 'NEW',
-  created: '2023-12-01 10:00:00.000000000',
-  updated: '2023-12-01 15:30:00.000000000',
-  insertions: 25,
-  deletions: 3,
-  _number: 12345,
-  owner: {
-    _account_id: 1000096,
-    name: 'John Developer',
-    email: 'john@example.com',
-    username: 'jdeveloper',
-  },
-}
+// Keep the old mockChange definition for now as backup (disabled to fix unused variable)
+// const _mockChange: Schema.Schema.Type<typeof ChangeInfo> = {
+//   id: 'myProject~master~I8473b95934b5732ac55d26311a706c9c2bde9940',
+//   project: 'myProject',
+//   branch: 'master',
+//   change_id: 'I8473b95934b5732ac55d26311a706c9c2bde9940',
+//   subject: 'Implementing new feature',
+//   status: 'NEW',
+//   created: '2023-12-01 10:00:00.000000000',
+//   updated: '2023-12-01 12:00:00.000000000',
+//   _number: 123456,
+//   owner: {
+//     _account_id: 1000000,
+//     name: 'John Doe',
+//     email: 'john.doe@example.com',
+//   },
+//   labels: {},
+//   permitted_labels: {},
+//   removable_reviewers: [],
+//   reviewers: {},
+//   requirements: [],
+// }
 
 export const setupFetchMock: () => void = () => {
-  // @ts-ignore - Bun's mock function needs better types
   ;(global as { fetch: unknown }).fetch = mock(async (url: string | URL, options?: RequestInit) => {
     const urlStr = url.toString()
     const method = options?.method || 'GET'

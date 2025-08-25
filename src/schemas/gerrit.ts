@@ -40,33 +40,36 @@ export const ChangeInfo: Schema.Schema<{
     readonly email?: string
     readonly username?: string
   }
-  readonly labels?: Record<string, {
-    readonly approved?: {
-      readonly _account_id: number
-      readonly name?: string
-      readonly email?: string
-      readonly username?: string
+  readonly labels?: Record<
+    string,
+    {
+      readonly approved?: {
+        readonly _account_id: number
+        readonly name?: string
+        readonly email?: string
+        readonly username?: string
+      }
+      readonly rejected?: {
+        readonly _account_id: number
+        readonly name?: string
+        readonly email?: string
+        readonly username?: string
+      }
+      readonly recommended?: {
+        readonly _account_id: number
+        readonly name?: string
+        readonly email?: string
+        readonly username?: string
+      }
+      readonly disliked?: {
+        readonly _account_id: number
+        readonly name?: string
+        readonly email?: string
+        readonly username?: string
+      }
+      readonly value?: number
     }
-    readonly rejected?: {
-      readonly _account_id: number
-      readonly name?: string
-      readonly email?: string
-      readonly username?: string
-    }
-    readonly recommended?: {
-      readonly _account_id: number
-      readonly name?: string
-      readonly email?: string
-      readonly username?: string
-    }
-    readonly disliked?: {
-      readonly _account_id: number
-      readonly name?: string
-      readonly email?: string
-      readonly username?: string
-    }
-    readonly value?: number
-  }>
+  >
   readonly submittable?: boolean
   readonly work_in_progress?: boolean
 }> = Schema.Struct({
@@ -81,42 +84,54 @@ export const ChangeInfo: Schema.Schema<{
   insertions: Schema.optional(Schema.Number),
   deletions: Schema.optional(Schema.Number),
   _number: Schema.Number,
-  owner: Schema.optional(Schema.Struct({
-    _account_id: Schema.Number,
-    name: Schema.optional(Schema.String),
-    email: Schema.optional(Schema.String),
-    username: Schema.optional(Schema.String),
-  })),
-  labels: Schema.optional(Schema.Record({ 
-    key: Schema.String, 
-    value: Schema.Struct({
-      approved: Schema.optional(Schema.Struct({
-        _account_id: Schema.Number,
-        name: Schema.optional(Schema.String),
-        email: Schema.optional(Schema.String),
-        username: Schema.optional(Schema.String),
-      })),
-      rejected: Schema.optional(Schema.Struct({
-        _account_id: Schema.Number,
-        name: Schema.optional(Schema.String),
-        email: Schema.optional(Schema.String),
-        username: Schema.optional(Schema.String),
-      })),
-      recommended: Schema.optional(Schema.Struct({
-        _account_id: Schema.Number,
-        name: Schema.optional(Schema.String),
-        email: Schema.optional(Schema.String),
-        username: Schema.optional(Schema.String),
-      })),
-      disliked: Schema.optional(Schema.Struct({
-        _account_id: Schema.Number,
-        name: Schema.optional(Schema.String),
-        email: Schema.optional(Schema.String),
-        username: Schema.optional(Schema.String),
-      })),
-      value: Schema.optional(Schema.Number),
-    })
-  })),
+  owner: Schema.optional(
+    Schema.Struct({
+      _account_id: Schema.Number,
+      name: Schema.optional(Schema.String),
+      email: Schema.optional(Schema.String),
+      username: Schema.optional(Schema.String),
+    }),
+  ),
+  labels: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Struct({
+        approved: Schema.optional(
+          Schema.Struct({
+            _account_id: Schema.Number,
+            name: Schema.optional(Schema.String),
+            email: Schema.optional(Schema.String),
+            username: Schema.optional(Schema.String),
+          }),
+        ),
+        rejected: Schema.optional(
+          Schema.Struct({
+            _account_id: Schema.Number,
+            name: Schema.optional(Schema.String),
+            email: Schema.optional(Schema.String),
+            username: Schema.optional(Schema.String),
+          }),
+        ),
+        recommended: Schema.optional(
+          Schema.Struct({
+            _account_id: Schema.Number,
+            name: Schema.optional(Schema.String),
+            email: Schema.optional(Schema.String),
+            username: Schema.optional(Schema.String),
+          }),
+        ),
+        disliked: Schema.optional(
+          Schema.Struct({
+            _account_id: Schema.Number,
+            name: Schema.optional(Schema.String),
+            email: Schema.optional(Schema.String),
+            username: Schema.optional(Schema.String),
+          }),
+        ),
+        value: Schema.optional(Schema.Number),
+      }),
+    }),
+  ),
   submittable: Schema.optional(Schema.Boolean),
   work_in_progress: Schema.optional(Schema.Boolean),
 })
@@ -159,18 +174,22 @@ export const CommentInfo: Schema.Schema<{
   id: Schema.String,
   path: Schema.optional(Schema.String),
   line: Schema.optional(Schema.Number),
-  range: Schema.optional(Schema.Struct({
-    start_line: Schema.Number,
-    end_line: Schema.Number,
-    start_character: Schema.optional(Schema.Number),
-    end_character: Schema.optional(Schema.Number),
-  })),
+  range: Schema.optional(
+    Schema.Struct({
+      start_line: Schema.Number,
+      end_line: Schema.Number,
+      start_character: Schema.optional(Schema.Number),
+      end_character: Schema.optional(Schema.Number),
+    }),
+  ),
   message: Schema.String,
-  author: Schema.optional(Schema.Struct({
-    name: Schema.optional(Schema.String),
-    email: Schema.optional(Schema.String),
-    _account_id: Schema.optional(Schema.Number),
-  })),
+  author: Schema.optional(
+    Schema.Struct({
+      name: Schema.optional(Schema.String),
+      email: Schema.optional(Schema.String),
+      _account_id: Schema.optional(Schema.Number),
+    }),
+  ),
   updated: Schema.optional(Schema.String),
   unresolved: Schema.optional(Schema.Boolean),
   in_reply_to: Schema.optional(Schema.String),

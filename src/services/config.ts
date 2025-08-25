@@ -1,8 +1,8 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer } from 'effect'
-import * as fs from 'fs'
-import * as path from 'path'
-import * as os from 'os'
 import { GerritCredentials } from '@/schemas/gerrit'
 
 export interface ConfigServiceImpl {
@@ -41,7 +41,7 @@ const writeFileConfig = (credentials: GerritCredentials): void => {
   if (!fs.existsSync(CONFIG_DIR)) {
     fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
   }
-  
+
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(credentials, null, 2), 'utf8')
   // Set restrictive permissions
   fs.chmodSync(CONFIG_FILE, 0o600)
@@ -96,8 +96,10 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
       // Delete file config
       try {
         deleteFileConfig()
+        yield* Effect.void
       } catch {
         // Ignore errors
+        yield* Effect.void
       }
     })
 
