@@ -3,7 +3,7 @@ import type { CommentInfo } from '@/schemas/gerrit'
 
 export const commentHandlers = [
   // Comments endpoint
-  http.get('*/a/changes/:changeId/revisions/:revisionId/comments', ({ params }) => {
+  http.get('*/a/changes/:changeId/revisions/:revisionId/comments', () => {
     const mockComments: Record<string, CommentInfo[]> = {
       '/COMMIT_MSG': [
         {
