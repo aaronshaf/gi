@@ -1,6 +1,5 @@
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer } from 'effect'
-import { DatabaseService } from '@/db/database'
 import {
   ChangeInfo,
   type DiffOptions,
@@ -12,44 +11,47 @@ import {
 } from '@/schemas/gerrit'
 import { ConfigService } from '@/services/config'
 
+export interface GerritApiServiceImpl {
+  readonly getChange: (changeId: string) => Effect.Effect<ChangeInfo, ApiError>
+  readonly listChanges: (query?: string) => Effect.Effect<readonly ChangeInfo[], ApiError>
+  readonly postReview: (changeId: string, review: ReviewInput) => Effect.Effect<void, ApiError>
+  readonly abandonChange: (changeId: string, message?: string) => Effect.Effect<void, ApiError>
+  readonly testConnection: Effect.Effect<boolean, ApiError>
+  readonly getRevision: (
+    changeId: string,
+    revisionId?: string,
+  ) => Effect.Effect<RevisionInfo, ApiError>
+  readonly getFiles: (
+    changeId: string,
+    revisionId?: string,
+  ) => Effect.Effect<Record<string, FileInfo>, ApiError>
+  readonly getFileDiff: (
+    changeId: string,
+    filePath: string,
+    revisionId?: string,
+    base?: string,
+  ) => Effect.Effect<FileDiffContent, ApiError>
+  readonly getFileContent: (
+    changeId: string,
+    filePath: string,
+    revisionId?: string,
+  ) => Effect.Effect<string, ApiError>
+  readonly getPatch: (changeId: string, revisionId?: string) => Effect.Effect<string, ApiError>
+  readonly getDiff: (
+    changeId: string,
+    options?: DiffOptions,
+  ) => Effect.Effect<string | string[] | Record<string, unknown> | FileDiffContent, ApiError>
+}
+
 export class GerritApiService extends Context.Tag('GerritApiService')<
   GerritApiService,
-  {
-    readonly getChange: (changeId: string) => Effect.Effect<ChangeInfo, ApiError>
-    readonly listChanges: (query?: string) => Effect.Effect<readonly ChangeInfo[], ApiError>
-    readonly postReview: (changeId: string, review: ReviewInput) => Effect.Effect<void, ApiError>
-    readonly testConnection: Effect.Effect<boolean, ApiError>
-    readonly getRevision: (
-      changeId: string,
-      revisionId?: string,
-    ) => Effect.Effect<RevisionInfo, ApiError>
-    readonly getFiles: (
-      changeId: string,
-      revisionId?: string,
-    ) => Effect.Effect<Record<string, FileInfo>, ApiError>
-    readonly getFileDiff: (
-      changeId: string,
-      filePath: string,
-      revisionId?: string,
-      base?: string,
-    ) => Effect.Effect<FileDiffContent, ApiError>
-    readonly getFileContent: (
-      changeId: string,
-      filePath: string,
-      revisionId?: string,
-    ) => Effect.Effect<string, ApiError>
-    readonly getPatch: (changeId: string, revisionId?: string) => Effect.Effect<string, ApiError>
-    readonly getDiff: (
-      changeId: string,
-      options?: DiffOptions,
-    ) => Effect.Effect<string | string[] | Record<string, unknown> | FileDiffContent, ApiError>
-  }
+  GerritApiServiceImpl
 >() {}
 
 export class ApiError extends Schema.TaggedError<ApiError>()('ApiError', {
   message: Schema.String,
   status: Schema.optional(Schema.Number),
-}) {}
+} as const) {}
 
 const createAuthHeader = (credentials: GerritCredentials): string => {
   const auth = btoa(`${credentials.username}:${credentials.password}`)
@@ -124,107 +126,79 @@ const makeRequest = <T = unknown>(
 export const GerritApiServiceLive: Layer.Layer<
   GerritApiService,
   never,
-  ConfigService | DatabaseService
+  ConfigService
 > = Layer.effect(
   GerritApiService,
   Effect.gen(function* () {
     const configService = yield* ConfigService
-    const databaseService = yield* DatabaseService
 
     const getCredentialsAndAuth = Effect.gen(function* () {
       const credentials = yield* configService.getCredentials.pipe(
         Effect.mapError(() => new ApiError({ message: 'Failed to get credentials' })),
       )
-      const authHeader = createAuthHeader(credentials)
-      return { credentials, authHeader }
+      // Ensure host doesn't have trailing slash
+      const normalizedCredentials = {
+        ...credentials,
+        host: credentials.host.replace(/\/$/, '')
+      }
+      const authHeader = createAuthHeader(normalizedCredentials)
+      return { credentials: normalizedCredentials, authHeader }
     })
 
     const getChange = (changeId: string) =>
       Effect.gen(function* () {
-        // First check cache
-        const cached = yield* databaseService
-          .getChange(changeId)
-          .pipe(Effect.catchTag('DatabaseError', () => Effect.succeed(null)))
-
-        if (cached) {
-          return cached
-        }
-
-        // Fetch from API
         const { credentials, authHeader } = yield* getCredentialsAndAuth
         const url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}`
-
-        const change = yield* makeRequest(url, authHeader, 'GET', undefined, ChangeInfo)
-
-        // Cache the result
-        yield* databaseService
-          .saveChange(change)
-          .pipe(Effect.catchTag('DatabaseError', () => Effect.void))
-
-        return change
+        return yield* makeRequest(url, authHeader, 'GET', undefined, ChangeInfo)
       })
 
     const listChanges = (query = 'is:open') =>
       Effect.gen(function* () {
         const { credentials, authHeader } = yield* getCredentialsAndAuth
         const encodedQuery = encodeURIComponent(query)
-        const url = `${credentials.host}/a/changes/?q=${encodedQuery}`
-
-        const changes = yield* makeRequest(
+        // Add o=LABELS and o=DETAILED_LABELS to get label information
+        const url = `${credentials.host}/a/changes/?q=${encodedQuery}&o=LABELS&o=DETAILED_LABELS&o=SUBMITTABLE`
+        return yield* makeRequest(
           url,
           authHeader,
           'GET',
           undefined,
           Schema.Array(ChangeInfo),
         )
-
-        // Cache all changes
-        for (const change of changes) {
-          yield* databaseService
-            .saveChange(change)
-            .pipe(Effect.catchTag('DatabaseError', () => Effect.void))
-        }
-
-        return changes
       })
 
     const postReview = (changeId: string, review: ReviewInput) =>
       Effect.gen(function* () {
         const { credentials, authHeader } = yield* getCredentialsAndAuth
         const url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}/revisions/current/review`
-
         yield* makeRequest(url, authHeader, 'POST', review)
+      })
 
-        // Invalidate cache for this change
-        yield* databaseService.getChange(changeId).pipe(
-          Effect.andThen((cached) => {
-            if (cached) {
-              // Update the cached change's updated timestamp
-              const updatedChange = {
-                ...cached,
-                updated: new Date().toISOString(),
-              }
-              return databaseService.saveChange(updatedChange)
-            }
-            return Effect.void
-          }),
-          Effect.catchTag('DatabaseError', () => Effect.void),
-        )
+    const abandonChange = (changeId: string, message?: string) =>
+      Effect.gen(function* () {
+        const { credentials, authHeader } = yield* getCredentialsAndAuth
+        const url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}/abandon`
+        const body = message ? { message } : {}
+        yield* makeRequest(url, authHeader, 'POST', body)
       })
 
     const testConnection = Effect.gen(function* () {
       const { credentials, authHeader } = yield* getCredentialsAndAuth
       const url = `${credentials.host}/a/accounts/self`
-
       yield* makeRequest(url, authHeader)
       return true
-    }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+    }).pipe(Effect.catchAll((error) => {
+      // Log the actual error for debugging
+      if (process.env.DEBUG) {
+        console.error('Connection error:', error)
+      }
+      return Effect.succeed(false)
+    }))
 
     const getRevision = (changeId: string, revisionId = 'current') =>
       Effect.gen(function* () {
         const { credentials, authHeader } = yield* getCredentialsAndAuth
         const url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}/revisions/${revisionId}`
-
         return yield* makeRequest(url, authHeader, 'GET', undefined, RevisionInfo)
       })
 
@@ -232,7 +206,6 @@ export const GerritApiServiceLive: Layer.Layer<
       Effect.gen(function* () {
         const { credentials, authHeader } = yield* getCredentialsAndAuth
         const url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}/revisions/${revisionId}/files`
-
         return yield* makeRequest(
           url,
           authHeader,
@@ -251,11 +224,9 @@ export const GerritApiServiceLive: Layer.Layer<
       Effect.gen(function* () {
         const { credentials, authHeader } = yield* getCredentialsAndAuth
         let url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}/revisions/${revisionId}/files/${encodeURIComponent(filePath)}/diff`
-
         if (base) {
           url += `?base=${encodeURIComponent(base)}`
         }
-
         return yield* makeRequest(url, authHeader, 'GET', undefined, FileDiffContent)
       })
 
@@ -264,7 +235,6 @@ export const GerritApiServiceLive: Layer.Layer<
         const { credentials, authHeader } = yield* getCredentialsAndAuth
         const url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}/revisions/${revisionId}/files/${encodeURIComponent(filePath)}/content`
 
-        // These endpoints return base64 directly, not JSON with prefix
         const response = yield* Effect.tryPromise({
           try: () =>
             fetch(url, {
@@ -294,7 +264,6 @@ export const GerritApiServiceLive: Layer.Layer<
           catch: () => new ApiError({ message: 'Failed to read response data' }),
         })
 
-        // Decode base64 content
         return yield* Effect.try({
           try: () => atob(base64Content),
           catch: () => new ApiError({ message: 'Failed to decode file content' }),
@@ -306,7 +275,6 @@ export const GerritApiServiceLive: Layer.Layer<
         const { credentials, authHeader } = yield* getCredentialsAndAuth
         const url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}/revisions/${revisionId}/patch`
 
-        // These endpoints return base64 directly, not JSON with prefix
         const response = yield* Effect.tryPromise({
           try: () =>
             fetch(url, {
@@ -336,7 +304,6 @@ export const GerritApiServiceLive: Layer.Layer<
           catch: () => new ApiError({ message: 'Failed to read response data' }),
         })
 
-        // Decode base64 patch
         return yield* Effect.try({
           try: () => atob(base64Patch),
           catch: () => new ApiError({ message: 'Failed to decode patch data' }),
@@ -363,7 +330,6 @@ export const GerritApiServiceLive: Layer.Layer<
             )
             return diff
           } else {
-            // Return unified diff for single file (we'll need to convert JSON diff to unified format)
             const diff = yield* getFileDiff(
               changeId,
               options.file,
@@ -399,11 +365,9 @@ export const GerritApiServiceLive: Layer.Layer<
           return files
         }
 
-        // Default: return unified patch
         return yield* getPatch(changeId, revisionId)
       })
 
-    // Helper function to convert JSON diff to unified diff format
     const convertToUnifiedDiff = (diff: FileDiffContent, filePath: string): string => {
       const lines: string[] = []
 
@@ -419,7 +383,6 @@ export const GerritApiServiceLive: Layer.Layer<
 
       for (const section of diff.content) {
         if (section.ab) {
-          // Common lines
           for (const line of section.ab) {
             lines.push(` ${line}`)
             _oldLineNum++
@@ -428,7 +391,6 @@ export const GerritApiServiceLive: Layer.Layer<
         }
 
         if (section.a) {
-          // Deleted lines
           for (const line of section.a) {
             lines.push(`-${line}`)
             _oldLineNum++
@@ -436,7 +398,6 @@ export const GerritApiServiceLive: Layer.Layer<
         }
 
         if (section.b) {
-          // Added lines
           for (const line of section.b) {
             lines.push(`+${line}`)
             _newLineNum++
@@ -456,6 +417,7 @@ export const GerritApiServiceLive: Layer.Layer<
       getChange,
       listChanges,
       postReview,
+      abandonChange,
       testConnection,
       getRevision,
       getFiles,

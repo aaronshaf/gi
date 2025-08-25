@@ -1,0 +1,18 @@
+#!/bin/sh
+# Get the actual script location (following symlinks)
+SCRIPT="$0"
+while [ -h "$SCRIPT" ]; do
+    DIR="$(cd -P "$(dirname "$SCRIPT")" && pwd)"
+    SCRIPT="$(readlink "$SCRIPT")"
+    [[ $SCRIPT != /* ]] && SCRIPT="$DIR/$SCRIPT"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT")" && pwd)"
+BINARY="$SCRIPT_DIR/ger-binary"
+
+if [ -f "$BINARY" ]; then
+    exec "$BINARY" "$@"
+else
+    # Fallback to bun with filtered output
+    ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+    exec bun "$ROOT_DIR/src/cli/index.ts" "$@" 2>&1 | grep -v '^\[[0-9.]*ms\] "\.env"'
+fi

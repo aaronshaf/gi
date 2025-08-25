@@ -29,17 +29,46 @@ export const ChangeInfo: Schema.Schema<{
   readonly change_id: string
   readonly subject: string
   readonly status: 'NEW' | 'MERGED' | 'ABANDONED' | 'DRAFT'
-  readonly created: string
-  readonly updated: string
-  readonly insertions: number
-  readonly deletions: number
-  readonly number: number
-  readonly owner: {
+  readonly created?: string
+  readonly updated?: string
+  readonly insertions?: number
+  readonly deletions?: number
+  readonly _number: number
+  readonly owner?: {
     readonly _account_id: number
     readonly name?: string
     readonly email?: string
     readonly username?: string
   }
+  readonly labels?: Record<string, {
+    readonly approved?: {
+      readonly _account_id: number
+      readonly name?: string
+      readonly email?: string
+      readonly username?: string
+    }
+    readonly rejected?: {
+      readonly _account_id: number
+      readonly name?: string
+      readonly email?: string
+      readonly username?: string
+    }
+    readonly recommended?: {
+      readonly _account_id: number
+      readonly name?: string
+      readonly email?: string
+      readonly username?: string
+    }
+    readonly disliked?: {
+      readonly _account_id: number
+      readonly name?: string
+      readonly email?: string
+      readonly username?: string
+    }
+    readonly value?: number
+  }>
+  readonly submittable?: boolean
+  readonly work_in_progress?: boolean
 }> = Schema.Struct({
   id: Schema.String,
   project: Schema.String,
@@ -47,17 +76,49 @@ export const ChangeInfo: Schema.Schema<{
   change_id: Schema.String,
   subject: Schema.String,
   status: Schema.Literal('NEW', 'MERGED', 'ABANDONED', 'DRAFT'),
-  created: Schema.String,
-  updated: Schema.String,
-  insertions: Schema.Number,
-  deletions: Schema.Number,
-  number: Schema.Number,
-  owner: Schema.Struct({
+  created: Schema.optional(Schema.String),
+  updated: Schema.optional(Schema.String),
+  insertions: Schema.optional(Schema.Number),
+  deletions: Schema.optional(Schema.Number),
+  _number: Schema.Number,
+  owner: Schema.optional(Schema.Struct({
     _account_id: Schema.Number,
     name: Schema.optional(Schema.String),
     email: Schema.optional(Schema.String),
     username: Schema.optional(Schema.String),
-  }),
+  })),
+  labels: Schema.optional(Schema.Record({ 
+    key: Schema.String, 
+    value: Schema.Struct({
+      approved: Schema.optional(Schema.Struct({
+        _account_id: Schema.Number,
+        name: Schema.optional(Schema.String),
+        email: Schema.optional(Schema.String),
+        username: Schema.optional(Schema.String),
+      })),
+      rejected: Schema.optional(Schema.Struct({
+        _account_id: Schema.Number,
+        name: Schema.optional(Schema.String),
+        email: Schema.optional(Schema.String),
+        username: Schema.optional(Schema.String),
+      })),
+      recommended: Schema.optional(Schema.Struct({
+        _account_id: Schema.Number,
+        name: Schema.optional(Schema.String),
+        email: Schema.optional(Schema.String),
+        username: Schema.optional(Schema.String),
+      })),
+      disliked: Schema.optional(Schema.Struct({
+        _account_id: Schema.Number,
+        name: Schema.optional(Schema.String),
+        email: Schema.optional(Schema.String),
+        username: Schema.optional(Schema.String),
+      })),
+      value: Schema.optional(Schema.Number),
+    })
+  })),
+  submittable: Schema.optional(Schema.Boolean),
+  work_in_progress: Schema.optional(Schema.Boolean),
 })
 export type ChangeInfo = Schema.Schema.Type<typeof ChangeInfo>
 
