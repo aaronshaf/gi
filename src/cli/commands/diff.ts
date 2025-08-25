@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { GerritApiService } from '@/api/gerrit'
+import { ApiError, GerritApiService } from '@/api/gerrit'
 import type { DiffOptions } from '@/schemas/gerrit'
 
 interface DiffCommandOptions {
@@ -12,7 +12,7 @@ interface DiffCommandOptions {
 export const diffCommand = (
   changeId: string,
   options: DiffCommandOptions,
-): Effect.Effect<void, any, GerritApiService> =>
+): Effect.Effect<void, ApiError | Error, GerritApiService> =>
   Effect.gen(function* () {
     const apiService = yield* GerritApiService
     

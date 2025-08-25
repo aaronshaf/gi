@@ -2,6 +2,7 @@ import { Schema } from '@effect/schema'
 import { Context, Effect, Layer } from 'effect'
 import {
   ChangeInfo,
+  CommentInfo,
   type DiffOptions,
   FileDiffContent,
   FileInfo,
@@ -41,6 +42,10 @@ export interface GerritApiServiceImpl {
     changeId: string,
     options?: DiffOptions,
   ) => Effect.Effect<string | string[] | Record<string, unknown> | FileDiffContent, ApiError>
+  readonly getComments: (
+    changeId: string,
+    revisionId?: string,
+  ) => Effect.Effect<Record<string, readonly CommentInfo[]>, ApiError>
 }
 
 export class GerritApiService extends Context.Tag('GerritApiService')<
@@ -413,6 +418,19 @@ export const GerritApiServiceLive: Layer.Layer<
       return lines.join('\n')
     }
 
+    const getComments = (changeId: string, revisionId = 'current') =>
+      Effect.gen(function* () {
+        const { credentials, authHeader } = yield* getCredentialsAndAuth
+        const url = `${credentials.host}/a/changes/${encodeURIComponent(changeId)}/revisions/${revisionId}/comments`
+        return yield* makeRequest(
+          url,
+          authHeader,
+          'GET',
+          undefined,
+          Schema.Record({ key: Schema.String, value: Schema.Array(CommentInfo) })
+        )
+      })
+
     return {
       getChange,
       listChanges,
@@ -425,6 +443,7 @@ export const GerritApiServiceLive: Layer.Layer<
       getFileContent,
       getPatch,
       getDiff,
+      getComments,
     }
   }),
 )

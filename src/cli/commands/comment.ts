@@ -1,5 +1,5 @@
-import { Effect, pipe } from 'effect'
-import { GerritApiService } from '@/api/gerrit'
+import { Effect } from 'effect'
+import { ApiError, GerritApiService } from '@/api/gerrit'
 import type { ReviewInput } from '@/schemas/gerrit'
 
 interface CommentOptions {
@@ -10,7 +10,7 @@ interface CommentOptions {
 export const commentCommand = (
   changeId: string,
   options: CommentOptions,
-): Effect.Effect<void, any, GerritApiService> =>
+): Effect.Effect<void, ApiError | Error, GerritApiService> =>
   Effect.gen(function* () {
     const message = options.message
 
