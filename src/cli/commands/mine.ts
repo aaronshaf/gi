@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
 import type { ChangeInfo } from '@/schemas/gerrit'
-import { colors, formatDate, getStatusIndicator } from '@/utils/formatters'
+import { colors } from '@/utils/formatters'
 
 interface MineOptions {
   xml?: boolean
@@ -42,7 +42,6 @@ export const mineCommand = (
     } else {
       // Pretty output by default
       if (changes.length === 0) {
-        console.log('No open changes found')
         return
       }
 
@@ -61,20 +60,38 @@ export const mineCommand = (
       // Sort projects alphabetically
       const sortedProjects = Object.keys(changesByProject).sort()
 
-      for (const project of sortedProjects) {
+      for (const [index, project] of sortedProjects.entries()) {
+        if (index > 0) {
+          console.log('') // Add blank line between projects
+        }
         console.log(`${colors.blue}${project}${colors.reset}`)
 
         const projectChanges = changesByProject[project]
         for (const change of projectChanges) {
-          const status = getStatusIndicator(change)
-          const statusPrefix = status ? `${status} ` : ''
-          console.log(`  ${statusPrefix}${change._number}: ${change.subject}`)
-          if (change.branch !== 'master' && change.branch !== 'main') {
-            console.log(`    branch: ${change.branch}`)
+          // Build status indicators
+          const indicators: string[] = []
+          if (change.labels?.['Code-Review']) {
+            const cr = change.labels['Code-Review']
+            if (cr.approved || cr.value === 2) indicators.push('✅')
+            else if (cr.rejected || cr.value === -2) indicators.push('❌')
+            else if (cr.recommended || cr.value === 1) indicators.push('👍')
+            else if (cr.disliked || cr.value === -1) indicators.push('👎')
           }
-          if (change.updated) {
-            console.log(`    ${formatDate(change.updated)}`)
+
+          // Check for Verified label as well
+          if (change.labels?.['Verified']) {
+            const v = change.labels.Verified
+            if (v.approved || v.value === 1) {
+              if (!indicators.includes('✅')) indicators.push('✅')
+            } else if (v.rejected || v.value === -1) {
+              indicators.push('❌')
+            }
           }
+
+          const statusStr = indicators.length > 0 ? indicators.join(' ') : '        '
+          const paddedStatus = statusStr.padEnd(8, ' ')
+
+          console.log(`${paddedStatus} ${change._number}  ${change.subject}`)
         }
       }
     }
