@@ -37,7 +37,7 @@ const abandonSingleChange = (changeId: string, options: AbandonOptions) =>
           console.log(`  Message: ${options.message}`)
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       // If we can't get change details, still try to abandon with just the ID
       try {
         yield* gerritApi.abandonChange(changeId, options.message)
@@ -57,7 +57,7 @@ const abandonSingleChange = (changeId: string, options: AbandonOptions) =>
             console.log(`  Message: ${options.message}`)
           }
         }
-      } catch (abandonError: any) {
+      } catch (abandonError) {
         throw abandonError
       }
     }
@@ -79,7 +79,7 @@ export const abandonCommand = (changeId?: string, options: AbandonOptions = {}) 
       return yield* Effect.promise(() => new Promise<void>((resolve, reject) => {
         const app = render(
           React.createElement(ChangeSelector, {
-            changes: [...changes],
+            changes,
             onSelect: async (selectedChanges: ChangeInfo[]) => {
               app.unmount()
               
@@ -98,8 +98,8 @@ export const abandonCommand = (changeId?: string, options: AbandonOptions = {}) 
                       Effect.provideService(GerritApiService, gerritApi)
                     )
                   )
-                } catch (error: any) {
-                  console.error(`Failed to abandon change ${change._number}: ${error.message}`)
+                } catch (error) {
+                  console.error(`Failed to abandon change ${change._number}: ${error instanceof Error ? error.message : String(error)}`)
                 }
               }
               

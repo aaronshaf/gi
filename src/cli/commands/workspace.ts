@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { GerritApiService } from '@/api/gerrit'
 import { ConfigService } from '@/services/config'
-import { execSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -114,8 +114,12 @@ export const workspaceCommand = (changeSpec: string, options: WorkspaceOptions) 
     const targetPatchset = patchset || 'current'
     const revision = yield* gerritApi.getRevision(changeId, targetPatchset)
     
-    // Create workspace directory name
+    // Create workspace directory name - validate to prevent path traversal
     const workspaceName = change._number.toString()
+    // Validate workspace name contains only digits
+    if (!/^\d+$/.test(workspaceName)) {
+      throw new Error(`Invalid change number: ${workspaceName}`)
+    }
     const workspaceDir = path.join(repoRoot, '.ger', workspaceName)
     
     // Check if worktree already exists
@@ -146,10 +150,14 @@ export const workspaceCommand = (changeSpec: string, options: WorkspaceOptions) 
     }
     
     try {
-      execSync(`git fetch ${matchingRemote} ${changeRef}`, { 
+      // Use spawnSync with array to prevent command injection
+      const fetchResult = spawnSync('git', ['fetch', matchingRemote, changeRef], { 
         encoding: 'utf8',
         cwd: repoRoot 
       })
+      if (fetchResult.status !== 0) {
+        throw new Error(fetchResult.stderr || 'Git fetch failed')
+      }
     } catch (error) {
       throw new Error(`Failed to fetch change: ${error}`)
     }
@@ -160,10 +168,14 @@ export const workspaceCommand = (changeSpec: string, options: WorkspaceOptions) 
     }
     
     try {
-      execSync(`git worktree add "${workspaceDir}" FETCH_HEAD`, { 
+      // Use spawnSync with array to prevent command injection
+      const worktreeResult = spawnSync('git', ['worktree', 'add', workspaceDir, 'FETCH_HEAD'], { 
         encoding: 'utf8',
         cwd: repoRoot 
       })
+      if (worktreeResult.status !== 0) {
+        throw new Error(worktreeResult.stderr || 'Git worktree add failed')
+      }
     } catch (error) {
       throw new Error(`Failed to create worktree: ${error}`)
     }

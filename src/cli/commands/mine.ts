@@ -1,90 +1,13 @@
 import { Effect } from 'effect'
 import { GerritApiService } from '@/api/gerrit'
 import type { ChangeInfo } from '@/schemas/gerrit'
+import { formatDate, getStatusIndicator, colors } from '@/utils/formatters'
 
 interface MineOptions {
   xml?: boolean
 }
 
 // ANSI color codes
-const colors = {
-  green: '\x1b[32m',
-  red: '\x1b[31m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  reset: '\x1b[0m'
-}
-
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr)
-  const now = new Date()
-  
-  // Check if today
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    })
-  }
-  
-  // Check if this year
-  if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: '2-digit' 
-    })
-  }
-  
-  // Otherwise show full date
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: '2-digit',
-    year: 'numeric'
-  })
-}
-
-const getStatusIndicator = (change: ChangeInfo): string => {
-  if (!change.labels) return ''
-  
-  const indicators: string[] = []
-  
-  // Check for Code-Review
-  if (change.labels['Code-Review']) {
-    const cr = change.labels['Code-Review']
-    if (cr.approved || cr.value === 2) {
-      indicators.push(`${colors.green}✅${colors.reset}`)
-    } else if (cr.rejected || cr.value === -2) {
-      indicators.push(`${colors.red}❌${colors.reset}`)
-    } else if (cr.recommended || cr.value === 1) {
-      indicators.push('👍')
-    } else if (cr.disliked || cr.value === -1) {
-      indicators.push('👎')
-    }
-  }
-  
-  // Check for Verified
-  if (change.labels['Verified']) {
-    const v = change.labels['Verified']
-    if (v.approved || v.value === 1) {
-      indicators.push(`${colors.green}✓${colors.reset}`)
-    } else if (v.rejected || v.value === -1) {
-      indicators.push(`${colors.red}✗${colors.reset}`)
-    }
-  }
-  
-  // Check if submittable
-  if (change.submittable) {
-    indicators.push('🚀')
-  }
-  
-  // Check if WIP
-  if (change.work_in_progress) {
-    indicators.push('🚧')
-  }
-  
-  return indicators.length > 0 ? indicators.join(' ') : ''
-}
 
 export const mineCommand = (options: MineOptions) =>
   Effect.gen(function* () {
