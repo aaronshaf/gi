@@ -135,6 +135,48 @@ export const CommentInput: Schema.Schema<{
 })
 export type CommentInput = Schema.Schema.Type<typeof CommentInput>
 
+// Comment info returned from API
+export const CommentInfo: Schema.Schema<{
+  readonly id: string
+  readonly path?: string
+  readonly line?: number
+  readonly range?: {
+    readonly start_line: number
+    readonly end_line: number
+    readonly start_character?: number
+    readonly end_character?: number
+  }
+  readonly message: string
+  readonly author?: {
+    readonly name?: string
+    readonly email?: string
+    readonly _account_id?: number
+  }
+  readonly updated?: string
+  readonly unresolved?: boolean
+  readonly in_reply_to?: string
+}> = Schema.Struct({
+  id: Schema.String,
+  path: Schema.optional(Schema.String),
+  line: Schema.optional(Schema.Number),
+  range: Schema.optional(Schema.Struct({
+    start_line: Schema.Number,
+    end_line: Schema.Number,
+    start_character: Schema.optional(Schema.Number),
+    end_character: Schema.optional(Schema.Number),
+  })),
+  message: Schema.String,
+  author: Schema.optional(Schema.Struct({
+    name: Schema.optional(Schema.String),
+    email: Schema.optional(Schema.String),
+    _account_id: Schema.optional(Schema.Number),
+  })),
+  updated: Schema.optional(Schema.String),
+  unresolved: Schema.optional(Schema.Boolean),
+  in_reply_to: Schema.optional(Schema.String),
+})
+export type CommentInfo = Schema.Schema.Type<typeof CommentInfo>
+
 export const ReviewInput: Schema.Schema<{
   readonly message?: string
   readonly labels?: Record<string, number>

@@ -11,6 +11,7 @@ import { diffCommand } from './commands/diff'
 import { mineCommand } from './commands/mine'
 import { workspaceCommand } from './commands/workspace'
 import { abandonCommand } from './commands/abandon'
+import { commentsCommand } from './commands/comments'
 
 const program = new Command()
 
@@ -181,6 +182,32 @@ program
         console.log(`  <status>error</status>`)
         console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
         console.log(`</abandon_result>`)
+      } else {
+        console.error('✗ Error:', error instanceof Error ? error.message : String(error))
+      }
+      process.exit(1)
+    }
+  })
+
+// comments command
+program
+  .command('comments <change-id>')
+  .description('Show all comments on a change with diff context')
+  .option('--xml', 'XML output for LLM consumption')
+  .action(async (changeId, options) => {
+    try {
+      const effect = commentsCommand(changeId, options).pipe(
+        Effect.provide(GerritApiServiceLive),
+        Effect.provide(ConfigServiceLive)
+      )
+      await Effect.runPromise(effect)
+    } catch (error) {
+      if (options.xml) {
+        console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
+        console.log(`<comments_result>`)
+        console.log(`  <status>error</status>`)
+        console.log(`  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`)
+        console.log(`</comments_result>`)
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       }

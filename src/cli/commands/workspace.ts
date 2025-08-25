@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
-import { GerritApiService } from '@/api/gerrit'
-import { ConfigService } from '@/services/config'
+import { ApiError, GerritApiService } from '@/api/gerrit'
+import { ConfigError, ConfigService } from '@/services/config'
 import { execSync, spawnSync } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -87,7 +87,7 @@ const getRepoRoot = (): string => {
   }
 }
 
-export const workspaceCommand = (changeSpec: string, options: WorkspaceOptions): Effect.Effect<void, any, GerritApiService | ConfigService> =>
+export const workspaceCommand = (changeSpec: string, options: WorkspaceOptions): Effect.Effect<void, ApiError | ConfigError | Error, GerritApiService | ConfigService> =>
   Effect.gen(function* () {
     // Check if we're in a git repo
     if (!isInGitRepo()) {
