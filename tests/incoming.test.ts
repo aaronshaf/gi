@@ -134,6 +134,9 @@ describe('incoming command', () => {
     // Check that changes were displayed
     const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
 
+    // Should not have header since we removed it
+    expect(output).not.toContain('Incoming changes for review')
+
     // Check project grouping
     expect(output).toContain('team-project')
     expect(output).toContain('another-project')
