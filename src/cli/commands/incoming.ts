@@ -64,8 +64,11 @@ export const incomingCommand = (
       // Sort projects alphabetically
       const sortedProjects = Object.keys(changesByProject).sort()
 
-      for (const project of sortedProjects) {
-        console.log(`\n${colors.blue}${project}${colors.reset}`)
+      for (const [index, project] of sortedProjects.entries()) {
+        if (index > 0) {
+          console.log('') // Add blank line between projects
+        }
+        console.log(`${colors.blue}${project}${colors.reset}`)
 
         const projectChanges = changesByProject[project]
         for (const change of projectChanges) {
