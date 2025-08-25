@@ -1,174 +1,159 @@
 # Gerrit CLI (ger)
 
-> ⚠️ **Alpha Status**: This project is in early development. APIs and commands may change.
-
-A fast, modern command-line interface for Gerrit Code Review with offline support and intelligent caching.
+An LLM-centric command-line interface for Gerrit Code Review. Outputs XML by default for easy parsing by AI tools, with optional human-readable output via `--pretty` flag.
 
 ## Features
 
-- **⚡ Fast & Offline** - SQLite caching for instant responses
-- **🔒 Secure** - Encrypted credential storage
-- **🎯 Interactive** - Beautiful terminal UI with real-time feedback
-- **📊 Rich Diffs** - Multiple formats: unified, JSON, file lists
-- **🛠️ Developer-friendly** - Built for daily Git workflows
+- **LLM-First Design**: XML output by default for AI/LLM consumption
+- **Simple & Direct**: No caching, always fresh data from Gerrit
+- **Secure**: Credentials stored in system keychain via keytar
+- **Effect-based**: Built with Effect for robust error handling
 
 ## Installation
 
-### Option 1: Download Release (Recommended)
 ```bash
-# Download the latest release for your platform
-curl -L https://github.com/your-org/gerrit-cli/releases/latest/download/ger-macos -o ger
-chmod +x ger
-sudo mv ger /usr/local/bin/
-```
-
-### Option 2: Build from Source
-```bash
-git clone https://github.com/your-org/gerrit-cli
-cd gerrit-cli
+git clone https://github.com/your-org/ger
+cd ger
 bun install
 bun run build
-# Add to PATH or create symlink
 ```
 
-## Quick Start
+## Setup
 
-### 1. Initialize
+Set environment variables and run init:
+
 ```bash
+export GERRIT_HOST="https://gerrit.example.com"
+export GERRIT_USERNAME="your-username"
+export GERRIT_PASSWORD="your-http-password-from-gerrit-settings"
+
 ger init
-```
-You'll be prompted for:
-- **Gerrit URL**: Your server (e.g., `https://gerrit.company.com`)
-- **Username**: Your Gerrit username
-- **HTTP Password**: Generate in Gerrit → Settings → HTTP Credentials
-
-### 2. Verify Setup
-```bash
-ger status
-```
-
-### 3. Start Using
-```bash
-# View a change
-ger diff 12345
-
-# Post a comment
-ger comment 12345 -m "LGTM!"
 ```
 
 ## Commands
 
-### Core Commands
-
-#### `ger init`
-Set up your Gerrit credentials securely.
-
-#### `ger status`
-Check connection and configuration status.
-
-#### `ger comment <change-id>`
-Post comments on changes.
+### Check Connection
 ```bash
-# Interactive mode
-ger comment 12345
+# XML output (default)
+ger status
 
-# Quick comment  
-ger comment 12345 -m "Please fix the typo in line 42"
+# Human-readable output
+ger status --pretty
 ```
 
-#### `ger diff <change-id>`
-View code changes in multiple formats.
-
+### Post Comment
 ```bash
-# Basic unified diff (default)
+# XML output (default)
+ger comment 12345 -m "LGTM!"
+
+# Human-readable output
+ger comment 12345 -m "Looks good!" --pretty
+```
+
+### Get Diff
+```bash
+# XML output (default)
 ger diff 12345
+
+# Human-readable output
+ger diff 12345 --pretty
 
 # List changed files only
 ger diff 12345 --files-only
 
-# JSON format for tooling
-ger diff 12345 --format json
-
-# Specific file diff
+# Specific file
 ger diff 12345 --file src/main.ts
-
-# Compare patchsets
-ger diff 12345 --base 1 --target 3
-
-# Full file content
-ger diff 12345 --full-files
 ```
 
-## Common Workflows
-
-### Code Review
+### List My Changes
 ```bash
-# Check what changed
-ger diff 12345 --files-only
+# XML output (default)
+ger mine
 
-# Review specific files
-ger diff 12345 --file src/api.ts
-
-# Leave feedback
-ger comment 12345 -m "Consider using const instead of let on line 15"
+# Human-readable output
+ger mine --pretty
 ```
 
-### AI Code Review Setup
+### Abandon Change
 ```bash
-# Get diff for AI analysis
-ger diff 12345 --format json > change.json
+# XML output (default)
+ger abandon 12345
 
-# Your AI tool processes change.json...
+# Human-readable output
+ger abandon 12345 --pretty
+
+# With reason
+ger abandon 12345 -m "Superseded by change 12346"
+```
+
+### Workspace Operations
+```bash
+# List workspace changes (XML output)
+ger workspace
+
+# Human-readable output
+ger workspace --pretty
+```
+
+## LLM Integration Examples
+
+### With Claude/ChatGPT
+```bash
+# Get diff in XML format for LLM analysis
+ger diff 12345 | llm "Review this code change"
 
 # Post AI-generated review
-ger comment 12345 -m "$(ai-review-tool change.json)"
+llm "Generate review for change 12345" | xargs -I {} ger comment 12345 -m "{}"
 ```
 
-### Offline Usage
-The CLI caches all data locally, so you can:
-- View previously fetched diffs offline
-- Read cached change information
-- Work seamlessly with poor connectivity
-
-## Configuration
-
-Credentials are stored in `~/.gi/credentials.json` with secure file permissions.
-
-### Environment Variables
-- `GI_CONFIG_DIR` - Custom config directory (default: `~/.gi`)
-
-## Troubleshooting
-
-### Common Issues
-
-**"Credentials not found"**
+### Piping to AI Tools
 ```bash
-ger init  # Re-run setup
+# Get change diff and analyze
+ger diff 12345 | ai-review-tool
+
+# Check status programmatically
+ger status | xmllint --xpath "//connected/text()" -
 ```
 
-**"Connection failed"**
-- Check your network connection
-- Verify Gerrit URL is correct
-- Ensure HTTP password is valid (not your login password!)
+## Output Format
 
-**"Permission denied"**
-- Make sure you have access to the change
-- Check if the change ID is correct
+All commands output XML by default:
 
-### Getting Help
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<comment_result>
+  <status>success</status>
+  <change_id>12345</change_id>
+  <change_number>12345</change_number>
+  <change_subject><![CDATA[Fix authentication bug]]></change_subject>
+  <change_status>NEW</change_status>
+  <message><![CDATA[LGTM!]]></message>
+</comment_result>
+```
+
+Use `--pretty` flag for human-readable output:
+```
+✓ Comment posted successfully!
+Change: Fix authentication bug (NEW)
+Message: LGTM!
+```
+
+## Development
+
+Built with:
+- **Bun** - Runtime and package manager
+- **Effect** - Type-safe error handling
+- **TypeScript** - With isolatedDeclarations
+- **Commander** - CLI argument parsing
+- **Keytar** - Secure credential storage
+
+### Testing
 ```bash
-ger --help           # General help
-ger <command> --help # Command-specific help
+bun test
+bun run typecheck
+bun run lint
 ```
 
-## Tips & Tricks
+## License
 
-1. **Use change numbers**: `ger diff 12345` works as well as full change IDs
-2. **Pipe output**: `ger diff 12345 | less` for long diffs
-3. **JSON integration**: Use `--format json` for custom tooling
-4. **File-specific reviews**: Use `--file` to focus on specific changes
-5. **Offline first**: Commands work offline with cached data
-
----
-
-For development and contribution guidelines, see [DEVELOPMENT.md](DEVELOPMENT.md).
+MIT

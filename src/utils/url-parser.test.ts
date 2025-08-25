@@ -3,32 +3,32 @@ import { extractChangeNumber, isValidChangeId } from './url-parser'
 
 describe('extractChangeNumber', () => {
   test('extracts change number from standard Gerrit URL', () => {
-    const url = 'https://gerrit.instructure.com/c/canvas-lms/+/384571'
+    const url = 'https://gerrit.example.com/c/my-project/+/384571'
     expect(extractChangeNumber(url)).toBe('384571')
   })
 
   test('extracts change number from URL with trailing slash', () => {
-    const url = 'https://gerrit.instructure.com/c/canvas-lms/+/384571/'
+    const url = 'https://gerrit.example.com/c/my-project/+/384571/'
     expect(extractChangeNumber(url)).toBe('384571')
   })
 
   test('extracts change number from URL with patchset', () => {
-    const url = 'https://gerrit.instructure.com/c/canvas-lms/+/384571/2'
+    const url = 'https://gerrit.example.com/c/my-project/+/384571/2'
     expect(extractChangeNumber(url)).toBe('384571')
   })
 
   test('extracts change number from hash-based URL', () => {
-    const url = 'https://gerrit.instructure.com/#/c/canvas-lms/+/384571/'
+    const url = 'https://gerrit.example.com/#/c/my-project/+/384571/'
     expect(extractChangeNumber(url)).toBe('384571')
   })
 
   test('extracts change number from simplified URL format', () => {
-    const url = 'https://gerrit.instructure.com/c/+/384571'
+    const url = 'https://gerrit.example.com/c/+/384571'
     expect(extractChangeNumber(url)).toBe('384571')
   })
 
   test('extracts change number from hash-based simplified URL', () => {
-    const url = 'https://gerrit.instructure.com/#/c/+/384571'
+    const url = 'https://gerrit.example.com/#/c/+/384571'
     expect(extractChangeNumber(url)).toBe('384571')
   })
 
@@ -42,7 +42,7 @@ describe('extractChangeNumber', () => {
   })
 
   test('returns original input for invalid URLs', () => {
-    const invalidUrl = 'https://gerrit.instructure.com/invalid/path'
+    const invalidUrl = 'https://gerrit.example.com/invalid/path'
     expect(extractChangeNumber(invalidUrl)).toBe(invalidUrl)
   })
 
