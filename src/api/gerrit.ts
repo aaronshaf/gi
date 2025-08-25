@@ -158,8 +158,8 @@ export const GerritApiServiceLive: Layer.Layer<GerritApiService, never, ConfigSe
         Effect.gen(function* () {
           const { credentials, authHeader } = yield* getCredentialsAndAuth
           const encodedQuery = encodeURIComponent(query)
-          // Add o=LABELS and o=DETAILED_LABELS to get label information
-          const url = `${credentials.host}/a/changes/?q=${encodedQuery}&o=LABELS&o=DETAILED_LABELS&o=SUBMITTABLE`
+          // Add additional options to get detailed information
+          const url = `${credentials.host}/a/changes/?q=${encodedQuery}&o=LABELS&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS&o=SUBMITTABLE`
           return yield* makeRequest(url, authHeader, 'GET', undefined, Schema.Array(ChangeInfo))
         })
 
