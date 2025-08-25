@@ -37,28 +37,24 @@ const abandonSingleChange = (changeId: string, options: AbandonOptions): Effect.
           console.log(`  Message: ${options.message}`)
         }
       }
-    } catch (error) {
+    } catch {
       // If we can't get change details, still try to abandon with just the ID
-      try {
-        yield* gerritApi.abandonChange(changeId, options.message)
-        
-        if (options.xml) {
-          console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
-          console.log(`<abandon_result>`)
-          console.log(`  <status>success</status>`)
-          console.log(`  <change_id>${changeId}</change_id>`)
-          if (options.message) {
-            console.log(`  <message><![CDATA[${options.message}]]></message>`)
-          }
-          console.log(`</abandon_result>`)
-        } else {
-          console.log(`✓ Abandoned change ${changeId}`)
-          if (options.message) {
-            console.log(`  Message: ${options.message}`)
-          }
+      yield* gerritApi.abandonChange(changeId, options.message)
+      
+      if (options.xml) {
+        console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
+        console.log(`<abandon_result>`)
+        console.log(`  <status>success</status>`)
+        console.log(`  <change_id>${changeId}</change_id>`)
+        if (options.message) {
+          console.log(`  <message><![CDATA[${options.message}]]></message>`)
         }
-      } catch (abandonError) {
-        throw abandonError
+        console.log(`</abandon_result>`)
+      } else {
+        console.log(`✓ Abandoned change ${changeId}`)
+        if (options.message) {
+          console.log(`  Message: ${options.message}`)
+        }
       }
     }
   })

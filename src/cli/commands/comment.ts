@@ -1,4 +1,4 @@
-import { Effect, pipe } from 'effect'
+import { Effect } from 'effect'
 import { ApiError, GerritApiService } from '@/api/gerrit'
 import type { ReviewInput } from '@/schemas/gerrit'
 
