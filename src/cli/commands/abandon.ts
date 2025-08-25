@@ -79,7 +79,7 @@ export const abandonCommand = (changeId?: string, options: AbandonOptions = {}) 
       return yield* Effect.promise(() => new Promise<void>((resolve, reject) => {
         const app = render(
           React.createElement(ChangeSelector, {
-            changes,
+            changes: [...changes],
             onSelect: async (selectedChanges: ChangeInfo[]) => {
               app.unmount()
               

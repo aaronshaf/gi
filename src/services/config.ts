@@ -68,7 +68,7 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
       }
 
       // No credentials found
-      yield* Effect.fail(
+      return yield* Effect.fail(
         new ConfigError({
           message: 'Credentials not found. Run "ger init" to set up your credentials.',
         }),
