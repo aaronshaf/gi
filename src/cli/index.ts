@@ -60,7 +60,31 @@ program
   .command('comment <change-id>')
   .description('Post a comment on a change')
   .option('-m, --message <message>', 'Comment message')
+  .option('--file <file>', 'File path for line-specific comment (relative to repo root)')
+  .option('--line <line>', 'Line number in the NEW version of the file (not diff line numbers)', parseInt)
+  .option('--unresolved', 'Mark comment as unresolved (requires human attention)')
+  .option('--batch', 'Read batch comments from stdin as JSON (see examples below)')
   .option('--xml', 'XML output for LLM consumption')
+  .addHelpText('after', `
+Examples:
+  # Post a general comment on a change
+  $ ger comment 12345 -m "Looks good to me!"
+
+  # Post a line-specific comment (line number from NEW file version)
+  $ ger comment 12345 --file src/main.js --line 42 -m "Consider using const here"
+
+  # Post an unresolved comment requiring human attention
+  $ ger comment 12345 --file src/api.js --line 15 -m "Security concern" --unresolved
+
+  # Post multiple comments using batch mode
+  $ echo '{"message": "Review complete", "comments": [
+      {"file": "src/main.js", "line": 10, "message": "Good refactor"},
+      {"file": "src/api.js", "line": 25, "message": "Check error handling", "unresolved": true}
+    ]}' | ger comment 12345 --batch
+
+Note: Line numbers refer to the actual line numbers in the NEW version of the file,
+      NOT the line numbers shown in the diff view. To find the correct line number,
+      look at the file after all changes have been applied.`)
   .action(async (changeId, options) => {
     try {
       const effect = commentCommand(changeId, options).pipe(
