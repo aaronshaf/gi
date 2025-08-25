@@ -2,8 +2,6 @@ import { Effect } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
 import { colors } from '@/utils/formatters'
 
-const Table = require('cli-table3')
-
 interface IncomingOptions {
   xml?: boolean
 }
@@ -48,11 +46,8 @@ export const incomingCommand = (
     } else {
       // Human-readable output
       if (changes.length === 0) {
-        console.log('No incoming changes for review')
         return
       }
-
-      console.log(`${colors.bold}Incoming changes for review:${colors.reset}\n`)
 
       // Group changes by project
       const changesByProject = changes.reduce(
@@ -70,30 +65,7 @@ export const incomingCommand = (
       const sortedProjects = Object.keys(changesByProject).sort()
 
       for (const project of sortedProjects) {
-        console.log(`${colors.blue}${project}${colors.reset}`)
-
-        const table = new Table({
-          head: [],
-          chars: {
-            top: '',
-            'top-mid': '',
-            'top-left': '',
-            'top-right': '',
-            bottom: '',
-            'bottom-mid': '',
-            'bottom-left': '',
-            'bottom-right': '',
-            left: '',
-            'left-mid': '',
-            mid: '',
-            'mid-mid': '',
-            right: '',
-            'right-mid': '',
-            middle: ' ',
-          },
-          style: { 'padding-left': 0, 'padding-right': 1, border: [] },
-          colWidths: [8, null, null], // status (fixed), number (auto), subject (auto)
-        })
+        console.log(`\n${colors.blue}${project}${colors.reset}`)
 
         const projectChanges = changesByProject[project]
         for (const change of projectChanges) {
@@ -109,20 +81,23 @@ export const incomingCommand = (
             else if (cr.disliked || cr.value === -1) indicators.push('👎')
           }
 
-          const status = indicators.length > 0 ? indicators.join(' ') : '  '
+          // Check for Verified label as well
+          if (change.labels?.['Verified']) {
+            const v = change.labels.Verified
+            if (v.approved || v.value === 1) {
+              if (!indicators.includes('✅')) indicators.push('✅')
+            } else if (v.rejected || v.value === -1) {
+              indicators.push('❌')
+            }
+          }
 
-          table.push([
-            status,
-            `${change._number}`,
-            `${change.subject} ${colors.dim}(by ${ownerName})${colors.reset}`,
-          ])
+          const statusStr = indicators.length > 0 ? indicators.join(' ') : '        '
+          const paddedStatus = statusStr.padEnd(8, ' ')
+
+          console.log(
+            `${paddedStatus} ${change._number}  ${change.subject} ${colors.dim}(by ${ownerName})${colors.reset}`,
+          )
         }
-
-        console.log(table.toString())
       }
-
-      console.log(
-        `\n${colors.dim}Total: ${changes.length} change(s) awaiting your review${colors.reset}`,
-      )
     }
   })
