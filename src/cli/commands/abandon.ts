@@ -63,7 +63,7 @@ const abandonSingleChange = (changeId: string, options: AbandonOptions): Effect.
     }
   })
 
-export const abandonCommand = (changeId?: string, options: AbandonOptions = {}): Effect.Effect<void, any, GerritApiService> =>
+export const abandonCommand = (changeId?: string, options: AbandonOptions = {}): Effect.Effect<void, ApiError, GerritApiService> =>
   Effect.gen(function* () {
     const gerritApi = yield* GerritApiService
     
