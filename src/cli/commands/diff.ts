@@ -12,7 +12,7 @@ interface DiffCommandOptions {
 export const diffCommand = (
   changeId: string,
   options: DiffCommandOptions,
-) =>
+): Effect.Effect<void, any, GerritApiService> =>
   Effect.gen(function* () {
     const apiService = yield* GerritApiService
     

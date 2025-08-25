@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import React from 'react'
 import { render } from 'ink'
-import { GerritApiService } from '@/api/gerrit'
+import { GerritApiService, ApiError } from '@/api/gerrit'
 import { ChangeSelector } from '@/cli/components/ChangeSelector'
 import type { ChangeInfo } from '@/schemas/gerrit'
 
@@ -10,7 +10,7 @@ interface AbandonOptions {
   xml?: boolean
 }
 
-const abandonSingleChange = (changeId: string, options: AbandonOptions) =>
+const abandonSingleChange = (changeId: string, options: AbandonOptions): Effect.Effect<void, ApiError, GerritApiService> =>
   Effect.gen(function* () {
     const gerritApi = yield* GerritApiService
     
@@ -63,7 +63,7 @@ const abandonSingleChange = (changeId: string, options: AbandonOptions) =>
     }
   })
 
-export const abandonCommand = (changeId?: string, options: AbandonOptions = {}) =>
+export const abandonCommand = (changeId?: string, options: AbandonOptions = {}): Effect.Effect<void, any, GerritApiService> =>
   Effect.gen(function* () {
     const gerritApi = yield* GerritApiService
     

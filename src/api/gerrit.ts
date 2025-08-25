@@ -11,45 +11,47 @@ import {
 } from '@/schemas/gerrit'
 import { ConfigService } from '@/services/config'
 
+export interface GerritApiServiceImpl {
+  readonly getChange: (changeId: string) => Effect.Effect<ChangeInfo, ApiError>
+  readonly listChanges: (query?: string) => Effect.Effect<readonly ChangeInfo[], ApiError>
+  readonly postReview: (changeId: string, review: ReviewInput) => Effect.Effect<void, ApiError>
+  readonly abandonChange: (changeId: string, message?: string) => Effect.Effect<void, ApiError>
+  readonly testConnection: Effect.Effect<boolean, ApiError>
+  readonly getRevision: (
+    changeId: string,
+    revisionId?: string,
+  ) => Effect.Effect<RevisionInfo, ApiError>
+  readonly getFiles: (
+    changeId: string,
+    revisionId?: string,
+  ) => Effect.Effect<Record<string, FileInfo>, ApiError>
+  readonly getFileDiff: (
+    changeId: string,
+    filePath: string,
+    revisionId?: string,
+    base?: string,
+  ) => Effect.Effect<FileDiffContent, ApiError>
+  readonly getFileContent: (
+    changeId: string,
+    filePath: string,
+    revisionId?: string,
+  ) => Effect.Effect<string, ApiError>
+  readonly getPatch: (changeId: string, revisionId?: string) => Effect.Effect<string, ApiError>
+  readonly getDiff: (
+    changeId: string,
+    options?: DiffOptions,
+  ) => Effect.Effect<string | string[] | Record<string, unknown> | FileDiffContent, ApiError>
+}
+
 export class GerritApiService extends Context.Tag('GerritApiService')<
   GerritApiService,
-  {
-    readonly getChange: (changeId: string) => Effect.Effect<ChangeInfo, ApiError>
-    readonly listChanges: (query?: string) => Effect.Effect<readonly ChangeInfo[], ApiError>
-    readonly postReview: (changeId: string, review: ReviewInput) => Effect.Effect<void, ApiError>
-    readonly abandonChange: (changeId: string, message?: string) => Effect.Effect<void, ApiError>
-    readonly testConnection: Effect.Effect<boolean, ApiError>
-    readonly getRevision: (
-      changeId: string,
-      revisionId?: string,
-    ) => Effect.Effect<RevisionInfo, ApiError>
-    readonly getFiles: (
-      changeId: string,
-      revisionId?: string,
-    ) => Effect.Effect<Record<string, FileInfo>, ApiError>
-    readonly getFileDiff: (
-      changeId: string,
-      filePath: string,
-      revisionId?: string,
-      base?: string,
-    ) => Effect.Effect<FileDiffContent, ApiError>
-    readonly getFileContent: (
-      changeId: string,
-      filePath: string,
-      revisionId?: string,
-    ) => Effect.Effect<string, ApiError>
-    readonly getPatch: (changeId: string, revisionId?: string) => Effect.Effect<string, ApiError>
-    readonly getDiff: (
-      changeId: string,
-      options?: DiffOptions,
-    ) => Effect.Effect<string | string[] | Record<string, unknown> | FileDiffContent, ApiError>
-  }
+  GerritApiServiceImpl
 >() {}
 
 export class ApiError extends Schema.TaggedError<ApiError>()('ApiError', {
   message: Schema.String,
   status: Schema.optional(Schema.Number),
-}) {}
+} as const) {}
 
 const createAuthHeader = (credentials: GerritCredentials): string => {
   const auth = btoa(`${credentials.username}:${credentials.password}`)

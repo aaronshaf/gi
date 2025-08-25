@@ -5,18 +5,20 @@ import * as path from 'path'
 import * as os from 'os'
 import { GerritCredentials } from '@/schemas/gerrit'
 
+export interface ConfigServiceImpl {
+  readonly getCredentials: Effect.Effect<GerritCredentials, ConfigError>
+  readonly saveCredentials: (credentials: GerritCredentials) => Effect.Effect<void, ConfigError>
+  readonly deleteCredentials: Effect.Effect<void, ConfigError>
+}
+
 export class ConfigService extends Context.Tag('ConfigService')<
   ConfigService,
-  {
-    readonly getCredentials: Effect.Effect<GerritCredentials, ConfigError>
-    readonly saveCredentials: (credentials: GerritCredentials) => Effect.Effect<void, ConfigError>
-    readonly deleteCredentials: Effect.Effect<void, ConfigError>
-  }
+  ConfigServiceImpl
 >() {}
 
 export class ConfigError extends Schema.TaggedError<ConfigError>()('ConfigError', {
   message: Schema.String,
-}) {}
+} as const) {}
 
 // File-based storage
 const CONFIG_DIR = path.join(os.homedir(), '.ger')

@@ -87,7 +87,7 @@ const getRepoRoot = (): string => {
   }
 }
 
-export const workspaceCommand = (changeSpec: string, options: WorkspaceOptions) =>
+export const workspaceCommand = (changeSpec: string, options: WorkspaceOptions): Effect.Effect<void, any, GerritApiService | ConfigService> =>
   Effect.gen(function* () {
     // Check if we're in a git repo
     if (!isInGitRepo()) {

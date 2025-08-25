@@ -81,7 +81,7 @@ const readExistingConfig = (): GerritCredentials | null => {
   return null
 }
 
-export const initCommand = () =>
+export const initCommand = (): Effect.Effect<void, Error, ConfigService> =>
   Effect.gen(function* () {
     const configService = yield* ConfigService
     
