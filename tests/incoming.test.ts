@@ -250,7 +250,7 @@ describe('incoming command', () => {
     await Effect.runPromise(program)
 
     const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
-    expect(output).toContain('No incoming changes for review')
+    expect(output).toBe('')
   })
 
   it('should handle network failures gracefully', async () => {

@@ -46,7 +46,6 @@ export const incomingCommand = (
     } else {
       // Human-readable output
       if (changes.length === 0) {
-        console.log('No incoming changes for review')
         return
       }
 
@@ -100,9 +99,5 @@ export const incomingCommand = (
           )
         }
       }
-
-      console.log(
-        `\n${colors.dim}Total: ${changes.length} change(s) awaiting your review${colors.reset}`,
-      )
     }
   })
