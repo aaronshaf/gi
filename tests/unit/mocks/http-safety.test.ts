@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, mock, test } from 'bun:test'
 import { setupFetchMock } from '../../mocks/fetch-mock'
 
 describe('HTTP Mock Safety Tests', () => {
-  let fetchCallLog: any[] = []
+  let fetchCallLog: Array<{ url: string; method: string }> = []
 
   beforeAll(() => {
     setupFetchMock()
@@ -24,7 +24,7 @@ describe('HTTP Mock Safety Tests', () => {
 
       // Call the mocked fetch
       return mockedFetch(url, options)
-    }) as any
+    }) as unknown as typeof fetch
   })
 
   afterEach(() => {

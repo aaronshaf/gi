@@ -1,11 +1,10 @@
-import { describe, expect, it, beforeAll, afterAll, beforeEach, afterEach, mock } from 'bun:test'
-import { Effect } from 'effect'
-import { commentCommand } from '@/cli/commands/comment'
-import { GerritApiServiceLive } from '@/api/gerrit'
-import { ConfigService } from '@/services/config'
-import { Layer } from 'effect'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { Effect, Layer } from 'effect'
+import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
-import { http, HttpResponse } from 'msw'
+import { GerritApiServiceLive } from '@/api/gerrit'
+import { commentCommand } from '@/cli/commands/comment'
+import { ConfigService } from '@/services/config'
 
 // Create MSW server
 const server = setupServer(
@@ -15,18 +14,23 @@ const server = setupServer(
     if (!auth || !auth.startsWith('Basic ')) {
       return HttpResponse.text('Unauthorized', { status: 401 })
     }
-    return HttpResponse.json({ 
+    return HttpResponse.json({
       _account_id: 1000,
       name: 'Test User',
-      email: 'test@example.com'
+      email: 'test@example.com',
     })
-  })
+  }),
 )
 
 describe('comment command', () => {
   let mockConsoleLog: ReturnType<typeof mock>
   let mockConsoleError: ReturnType<typeof mock>
-  let mockProcessStdin: any
+  let mockProcessStdin: {
+    on: ReturnType<typeof mock>
+    emit: (data: string) => void
+    dataCallback?: (...args: unknown[]) => void
+    endCallback?: (...args: unknown[]) => void
+  }
 
   beforeAll(() => {
     server.listen({ onUnhandledRequest: 'bypass' })
@@ -38,7 +42,7 @@ describe('comment command', () => {
 
   beforeEach(() => {
     server.resetHandlers()
-    
+
     mockConsoleLog = mock(() => {})
     mockConsoleError = mock(() => {})
     console.log = mockConsoleLog
@@ -46,7 +50,7 @@ describe('comment command', () => {
 
     // Mock process.stdin for batch tests
     mockProcessStdin = {
-      on: mock((event: string, callback: Function) => {
+      on: mock((event: string, callback: (...args: unknown[]) => void) => {
         if (event === 'data') {
           mockProcessStdin.dataCallback = callback
         } else if (event === 'end') {
@@ -60,7 +64,7 @@ describe('comment command', () => {
         if (mockProcessStdin.endCallback) {
           mockProcessStdin.endCallback()
         }
-      }
+      },
     }
   })
 
@@ -84,11 +88,11 @@ describe('comment command', () => {
         }`)
       }),
       http.post('*/a/changes/:changeId/revisions/current/review', async ({ request }) => {
-        const body = await request.json() as any
+        const body = (await request.json()) as { message?: string; comments?: unknown }
         expect(body.message).toBe('This is a test comment')
         expect(body.comments).toBeUndefined()
         return HttpResponse.json({})
-      })
+      }),
     )
 
     const mockConfigLayer = Layer.succeed(
@@ -101,19 +105,16 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
-    const program = commentCommand('12345', { 
-      message: 'This is a test comment' 
-    }).pipe(
-      Effect.provide(GerritApiServiceLive),
-      Effect.provide(mockConfigLayer),
-    )
+    const program = commentCommand('12345', {
+      message: 'This is a test comment',
+    }).pipe(Effect.provide(GerritApiServiceLive), Effect.provide(mockConfigLayer))
 
     await Effect.runPromise(program)
 
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('✓ Comment posted successfully!')
     expect(output).toContain('Test change')
   })
@@ -134,15 +135,18 @@ describe('comment command', () => {
         }`)
       }),
       http.post('*/a/changes/:changeId/revisions/current/review', async ({ request }) => {
-        const body = await request.json() as any
+        const body = (await request.json()) as {
+          message?: string
+          comments?: Record<string, Array<{ line: number; message: string; unresolved?: boolean }>>
+        }
         expect(body.message).toBeUndefined()
         expect(body.comments).toBeDefined()
-        expect(body.comments['src/main.js']).toBeDefined()
-        expect(body.comments['src/main.js'][0].line).toBe(42)
-        expect(body.comments['src/main.js'][0].message).toBe('Fix this issue')
-        expect(body.comments['src/main.js'][0].unresolved).toBe(true)
+        expect(body.comments?.['src/main.js']).toBeDefined()
+        expect(body.comments?.['src/main.js']?.[0].line).toBe(42)
+        expect(body.comments?.['src/main.js']?.[0].message).toBe('Fix this issue')
+        expect(body.comments?.['src/main.js']?.[0].unresolved).toBe(true)
         return HttpResponse.json({})
-      })
+      }),
     )
 
     const mockConfigLayer = Layer.succeed(
@@ -155,22 +159,19 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
-    const program = commentCommand('12345', { 
+    const program = commentCommand('12345', {
       message: 'Fix this issue',
       file: 'src/main.js',
       line: 42,
-      unresolved: true
-    }).pipe(
-      Effect.provide(GerritApiServiceLive),
-      Effect.provide(mockConfigLayer),
-    )
+      unresolved: true,
+    }).pipe(Effect.provide(GerritApiServiceLive), Effect.provide(mockConfigLayer))
 
     await Effect.runPromise(program)
 
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('✓ Comment posted successfully!')
     expect(output).toContain('File: src/main.js, Line: 42')
     expect(output).toContain('Status: Unresolved')
@@ -181,7 +182,7 @@ describe('comment command', () => {
     const originalStdin = process.stdin
     Object.defineProperty(process, 'stdin', {
       value: mockProcessStdin,
-      configurable: true
+      configurable: true,
     })
 
     server.use(
@@ -199,13 +200,16 @@ describe('comment command', () => {
         }`)
       }),
       http.post('*/a/changes/:changeId/revisions/current/review', async ({ request }) => {
-        const body = await request.json() as any
+        const body = (await request.json()) as {
+          message?: string
+          comments?: Record<string, unknown[]>
+        }
         expect(body.message).toBe('Overall review')
         expect(body.comments).toBeDefined()
-        expect(body.comments['src/main.js'].length).toBe(2)
-        expect(body.comments['src/utils.js'].length).toBe(1)
+        expect(body.comments?.['src/main.js']?.length).toBe(2)
+        expect(body.comments?.['src/utils.js']?.length).toBe(1)
         return HttpResponse.json({})
-      })
+      }),
     )
 
     const mockConfigLayer = Layer.succeed(
@@ -218,7 +222,7 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentCommand('12345', { batch: true }).pipe(
@@ -228,26 +232,28 @@ describe('comment command', () => {
 
     // Simulate stdin data
     setTimeout(() => {
-      mockProcessStdin.emit(JSON.stringify({
-        message: 'Overall review',
-        comments: [
-          { file: 'src/main.js', line: 10, message: 'First comment' },
-          { file: 'src/main.js', line: 20, message: 'Second comment', unresolved: true },
-          { file: 'src/utils.js', line: 5, message: 'Utils comment' }
-        ]
-      }))
+      mockProcessStdin.emit(
+        JSON.stringify({
+          message: 'Overall review',
+          comments: [
+            { file: 'src/main.js', line: 10, message: 'First comment' },
+            { file: 'src/main.js', line: 20, message: 'Second comment', unresolved: true },
+            { file: 'src/utils.js', line: 5, message: 'Utils comment' },
+          ],
+        }),
+      )
     }, 10)
 
     await Effect.runPromise(program)
 
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('✓ Comment posted successfully!')
     expect(output).toContain('Posted 3 line comment(s)')
 
     // Restore process.stdin
     Object.defineProperty(process, 'stdin', {
       value: originalStdin,
-      configurable: true
+      configurable: true,
     })
   })
 
@@ -268,7 +274,7 @@ describe('comment command', () => {
       }),
       http.post('*/a/changes/:changeId/revisions/current/review', async () => {
         return HttpResponse.json({})
-      })
+      }),
     )
 
     const mockConfigLayer = Layer.succeed(
@@ -281,22 +287,19 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
-    const program = commentCommand('12345', { 
+    const program = commentCommand('12345', {
       message: 'Fix this',
       file: 'test.js',
       line: 10,
-      xml: true
-    }).pipe(
-      Effect.provide(GerritApiServiceLive),
-      Effect.provide(mockConfigLayer),
-    )
+      xml: true,
+    }).pipe(Effect.provide(GerritApiServiceLive), Effect.provide(mockConfigLayer))
 
     await Effect.runPromise(program)
 
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('<?xml version="1.0" encoding="UTF-8"?>')
     expect(output).toContain('<comment_result>')
     expect(output).toContain('<status>success</status>')
@@ -309,7 +312,7 @@ describe('comment command', () => {
     const originalStdin = process.stdin
     Object.defineProperty(process, 'stdin', {
       value: mockProcessStdin,
-      configurable: true
+      configurable: true,
     })
 
     const mockConfigLayer = Layer.succeed(
@@ -322,7 +325,7 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentCommand('12345', { batch: true }).pipe(
@@ -340,7 +343,7 @@ describe('comment command', () => {
     // Restore process.stdin
     Object.defineProperty(process, 'stdin', {
       value: originalStdin,
-      configurable: true
+      configurable: true,
     })
   })
 
@@ -348,7 +351,7 @@ describe('comment command', () => {
     const originalStdin = process.stdin
     Object.defineProperty(process, 'stdin', {
       value: mockProcessStdin,
-      configurable: true
+      configurable: true,
     })
 
     const mockConfigLayer = Layer.succeed(
@@ -361,7 +364,7 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentCommand('12345', { batch: true }).pipe(
@@ -371,11 +374,13 @@ describe('comment command', () => {
 
     // Simulate invalid schema
     setTimeout(() => {
-      mockProcessStdin.emit(JSON.stringify({
-        comments: [
-          { file: 'src/main.js' } // Missing required fields
-        ]
-      }))
+      mockProcessStdin.emit(
+        JSON.stringify({
+          comments: [
+            { file: 'src/main.js' }, // Missing required fields
+          ],
+        }),
+      )
     }, 10)
 
     await expect(Effect.runPromise(program)).rejects.toThrow('Invalid batch input format')
@@ -383,7 +388,7 @@ describe('comment command', () => {
     // Restore process.stdin
     Object.defineProperty(process, 'stdin', {
       value: originalStdin,
-      configurable: true
+      configurable: true,
     })
   })
 
@@ -398,19 +403,18 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
-    const program = commentCommand('12345', { 
+    const program = commentCommand('12345', {
       file: 'test.js',
-      line: 10
+      line: 10,
       // Missing message
-    }).pipe(
-      Effect.provide(GerritApiServiceLive),
-      Effect.provide(mockConfigLayer),
-    )
+    }).pipe(Effect.provide(GerritApiServiceLive), Effect.provide(mockConfigLayer))
 
-    await expect(Effect.runPromise(program)).rejects.toThrow('Message is required for line comments')
+    await expect(Effect.runPromise(program)).rejects.toThrow(
+      'Message is required for line comments',
+    )
   })
 
   it('should require message for overall comments', async () => {
@@ -424,7 +428,7 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentCommand('12345', {}).pipe(
@@ -432,14 +436,16 @@ describe('comment command', () => {
       Effect.provide(mockConfigLayer),
     )
 
-    await expect(Effect.runPromise(program)).rejects.toThrow('Message is required. Use -m "your message"')
+    await expect(Effect.runPromise(program)).rejects.toThrow(
+      'Message is required. Use -m "your message"',
+    )
   })
 
   it('should handle API errors gracefully', async () => {
     server.use(
       http.get('*/a/changes/:changeId', () => {
         return HttpResponse.text('Not found', { status: 404 })
-      })
+      }),
     )
 
     const mockConfigLayer = Layer.succeed(
@@ -452,15 +458,12 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
-    const program = commentCommand('12345', { 
-      message: 'Test comment'
-    }).pipe(
-      Effect.provide(GerritApiServiceLive),
-      Effect.provide(mockConfigLayer),
-    )
+    const program = commentCommand('12345', {
+      message: 'Test comment',
+    }).pipe(Effect.provide(GerritApiServiceLive), Effect.provide(mockConfigLayer))
 
     await expect(Effect.runPromise(program)).rejects.toThrow('Failed to get change')
   })
@@ -482,7 +485,7 @@ describe('comment command', () => {
       }),
       http.post('*/a/changes/:changeId/revisions/current/review', () => {
         return HttpResponse.text('Forbidden', { status: 403 })
-      })
+      }),
     )
 
     const mockConfigLayer = Layer.succeed(
@@ -495,15 +498,12 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
-    const program = commentCommand('12345', { 
-      message: 'Test comment'
-    }).pipe(
-      Effect.provide(GerritApiServiceLive),
-      Effect.provide(mockConfigLayer),
-    )
+    const program = commentCommand('12345', {
+      message: 'Test comment',
+    }).pipe(Effect.provide(GerritApiServiceLive), Effect.provide(mockConfigLayer))
 
     await expect(Effect.runPromise(program)).rejects.toThrow('Failed to post comment')
   })
@@ -512,7 +512,7 @@ describe('comment command', () => {
     const originalStdin = process.stdin
     Object.defineProperty(process, 'stdin', {
       value: mockProcessStdin,
-      configurable: true
+      configurable: true,
     })
 
     server.use(
@@ -531,7 +531,7 @@ describe('comment command', () => {
       }),
       http.post('*/a/changes/:changeId/revisions/current/review', async () => {
         return HttpResponse.json({})
-      })
+      }),
     )
 
     const mockConfigLayer = Layer.succeed(
@@ -544,7 +544,7 @@ describe('comment command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentCommand('12345', { batch: true, xml: true }).pipe(
@@ -554,18 +554,20 @@ describe('comment command', () => {
 
     // Simulate stdin data
     setTimeout(() => {
-      mockProcessStdin.emit(JSON.stringify({
-        message: 'Overall review',
-        comments: [
-          { file: 'src/main.js', line: 10, message: 'First comment' },
-          { file: 'src/main.js', line: 20, message: 'Second comment', unresolved: true }
-        ]
-      }))
+      mockProcessStdin.emit(
+        JSON.stringify({
+          message: 'Overall review',
+          comments: [
+            { file: 'src/main.js', line: 10, message: 'First comment' },
+            { file: 'src/main.js', line: 20, message: 'Second comment', unresolved: true },
+          ],
+        }),
+      )
     }, 10)
 
     await Effect.runPromise(program)
 
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('<?xml version="1.0" encoding="UTF-8"?>')
     expect(output).toContain('<comments>')
     expect(output).toContain('<file>src/main.js</file>')
@@ -577,7 +579,7 @@ describe('comment command', () => {
     // Restore process.stdin
     Object.defineProperty(process, 'stdin', {
       value: originalStdin,
-      configurable: true
+      configurable: true,
     })
   })
 })

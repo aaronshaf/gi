@@ -1,7 +1,7 @@
-import { Effect, pipe } from 'effect'
 import { Schema } from '@effect/schema'
-import { ApiError, GerritApiService } from '@/api/gerrit'
-import type { ReviewInput, ChangeInfo } from '@/schemas/gerrit'
+import { Effect, pipe } from 'effect'
+import { type ApiError, GerritApiService } from '@/api/gerrit'
+import type { ChangeInfo, ReviewInput } from '@/schemas/gerrit'
 
 interface CommentOptions {
   message?: string
@@ -21,8 +21,8 @@ const BatchCommentSchema = Schema.Struct({
       line: Schema.Number,
       message: Schema.String,
       unresolved: Schema.optional(Schema.Boolean),
-    })
-  )
+    }),
+  ),
 })
 
 type BatchCommentInput = Schema.Schema.Type<typeof BatchCommentSchema>
@@ -30,15 +30,18 @@ type BatchCommentInput = Schema.Schema.Type<typeof BatchCommentSchema>
 // Effect-ified stdin reader
 const readStdin = Effect.async<string, Error>((callback) => {
   let data = ''
-  
-  const onData = (chunk: any) => { data += chunk }
+
+  const onData = (chunk: Buffer | string) => {
+    data += chunk
+  }
   const onEnd = () => callback(Effect.succeed(data))
-  const onError = (error: Error) => callback(Effect.fail(new Error(`Failed to read stdin: ${error.message}`)))
-  
+  const onError = (error: Error) =>
+    callback(Effect.fail(new Error(`Failed to read stdin: ${error.message}`)))
+
   process.stdin.on('data', onData)
   process.stdin.on('end', onEnd)
   process.stdin.on('error', onError)
-  
+
   // Cleanup function
   return Effect.sync(() => {
     process.stdin.removeListener('data', onData)
@@ -51,29 +54,29 @@ const readStdin = Effect.async<string, Error>((callback) => {
 const parseJson = (data: string): Effect.Effect<unknown, Error> =>
   Effect.try({
     try: () => JSON.parse(data),
-    catch: (error) => new Error(`Invalid JSON input: ${error instanceof Error ? error.message : 'parse error'}`)
+    catch: (error) =>
+      new Error(`Invalid JSON input: ${error instanceof Error ? error.message : 'parse error'}`),
   })
 
 // Helper to build ReviewInput from batch data
 const buildBatchReview = (batchInput: BatchCommentInput): ReviewInput => {
-  const commentsByFile = batchInput.comments.reduce<Record<string, Array<{ line?: number; message: string; unresolved?: boolean }>>>(
-    (acc, comment) => {
-      if (!acc[comment.file]) {
-        acc[comment.file] = []
-      }
-      acc[comment.file].push({
-        line: comment.line,
-        message: comment.message,
-        unresolved: comment.unresolved
-      })
-      return acc
-    },
-    {}
-  )
-  
+  const commentsByFile = batchInput.comments.reduce<
+    Record<string, Array<{ line?: number; message: string; unresolved?: boolean }>>
+  >((acc, comment) => {
+    if (!acc[comment.file]) {
+      acc[comment.file] = []
+    }
+    acc[comment.file].push({
+      line: comment.line,
+      message: comment.message,
+      unresolved: comment.unresolved,
+    })
+    return acc
+  }, {})
+
   return {
     message: batchInput.message,
-    comments: commentsByFile
+    comments: commentsByFile,
   }
 }
 
@@ -87,31 +90,36 @@ const createReviewInput = (options: CommentOptions): Effect.Effect<ReviewInput, 
       Effect.flatMap(
         Schema.decodeUnknown(BatchCommentSchema, {
           errors: 'all',
-          onExcessProperty: 'ignore'
-        })
+          onExcessProperty: 'ignore',
+        }),
       ),
-      Effect.mapError(() => 
-        new Error('Invalid batch input format. Expected: {"message": "...", "comments": [{"file": "...", "line": ..., "message": "..."}]}')
+      Effect.mapError(
+        () =>
+          new Error(
+            'Invalid batch input format. Expected: {"message": "...", "comments": [{"file": "...", "line": ..., "message": "..."}]}',
+          ),
       ),
-      Effect.map(buildBatchReview)
+      Effect.map(buildBatchReview),
     )
   }
-  
+
   // Line comment mode
   if (options.file && options.line) {
     return options.message
       ? Effect.succeed({
           comments: {
-            [options.file]: [{
-              line: options.line,
-              message: options.message,
-              unresolved: options.unresolved
-            }]
-          }
+            [options.file]: [
+              {
+                line: options.line,
+                message: options.message,
+                unresolved: options.unresolved,
+              },
+            ],
+          },
         })
       : Effect.fail(new Error('Message is required for line comments. Use -m "your message"'))
   }
-  
+
   // Overall comment mode
   return options.message
     ? Effect.succeed({ message: options.message })
@@ -124,27 +132,23 @@ export const commentCommand = (
 ): Effect.Effect<void, ApiError | Error, GerritApiService> =>
   Effect.gen(function* () {
     const apiService = yield* GerritApiService
-    
+
     // Build the review input
     const review = yield* createReviewInput(options)
-    
+
     // Execute the API calls in sequence
     const change = yield* pipe(
       apiService.getChange(changeId),
-      Effect.mapError((error) => 
-        error._tag === 'ApiError' 
-          ? new Error(`Failed to get change: ${error.message}`)
-          : error
-      )
+      Effect.mapError((error) =>
+        error._tag === 'ApiError' ? new Error(`Failed to get change: ${error.message}`) : error,
+      ),
     )
-    
+
     yield* pipe(
       apiService.postReview(changeId, review),
       Effect.mapError((error) =>
-        error._tag === 'ApiError'
-          ? new Error(`Failed to post comment: ${error.message}`)
-          : error
-      )
+        error._tag === 'ApiError' ? new Error(`Failed to post comment: ${error.message}`) : error,
+      ),
     )
 
     // Format and display output
@@ -156,7 +160,7 @@ const formatXmlOutput = (
   change: ChangeInfo,
   review: ReviewInput,
   options: CommentOptions,
-  changeId: string
+  changeId: string,
 ): Effect.Effect<void> =>
   Effect.sync(() => {
     const lines: string[] = [
@@ -166,9 +170,9 @@ const formatXmlOutput = (
       `  <change_id>${changeId}</change_id>`,
       `  <change_number>${change._number}</change_number>`,
       `  <change_subject><![CDATA[${change.subject}]]></change_subject>`,
-      `  <change_status>${change.status}</change_status>`
+      `  <change_status>${change.status}</change_status>`,
     ]
-    
+
     if (options.batch && review.comments) {
       lines.push(`  <comments>`)
       for (const [file, comments] of Object.entries(review.comments)) {
@@ -192,25 +196,27 @@ const formatXmlOutput = (
     } else {
       lines.push(`  <message><![CDATA[${options.message}]]></message>`)
     }
-    
+
     lines.push(`</comment_result>`)
-    lines.forEach(line => console.log(line))
+    for (const line of lines) {
+      console.log(line)
+    }
   })
 
 // Helper to format human-readable output
 const formatHumanOutput = (
   change: ChangeInfo,
   review: ReviewInput,
-  options: CommentOptions
+  options: CommentOptions,
 ): Effect.Effect<void> =>
   Effect.sync(() => {
     console.log(`✓ Comment posted successfully!`)
     console.log(`Change: ${change.subject} (${change.status})`)
-    
+
     if (options.batch && review.comments) {
       const totalComments = Object.values(review.comments).reduce(
         (sum, comments) => sum + comments.length,
-        0
+        0,
       )
       console.log(`Posted ${totalComments} line comment(s)`)
     } else if (options.file && options.line) {
@@ -227,7 +233,7 @@ const formatOutput = (
   change: ChangeInfo,
   review: ReviewInput,
   options: CommentOptions,
-  changeId: string
+  changeId: string,
 ): Effect.Effect<void> =>
   options.xml
     ? formatXmlOutput(change, review, options, changeId)

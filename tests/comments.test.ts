@@ -1,11 +1,10 @@
-import { describe, expect, it, beforeAll, afterAll, beforeEach, afterEach, mock } from 'bun:test'
-import { Effect } from 'effect'
-import { commentsCommand } from '@/cli/commands/comments'
-import { GerritApiServiceLive } from '@/api/gerrit'
-import { ConfigService } from '@/services/config'
-import { Layer } from 'effect'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { Effect, Layer } from 'effect'
+import { delay, HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
-import { http, HttpResponse, delay } from 'msw'
+import { GerritApiServiceLive } from '@/api/gerrit'
+import { commentsCommand } from '@/cli/commands/comments'
+import { ConfigService } from '@/services/config'
 import { commentHandlers, emptyCommentsHandlers } from './mocks/msw-handlers'
 
 // Create MSW server
@@ -16,12 +15,12 @@ const server = setupServer(
     if (!auth || !auth.startsWith('Basic ')) {
       return HttpResponse.text('Unauthorized', { status: 401 })
     }
-    return HttpResponse.json({ 
+    return HttpResponse.json({
       _account_id: 1000,
       name: 'Test User',
-      email: 'test@example.com'
+      email: 'test@example.com',
     })
-  })
+  }),
 )
 
 describe('comments command', () => {
@@ -41,7 +40,7 @@ describe('comments command', () => {
   beforeEach(() => {
     // Reset handlers to defaults before each test
     server.resetHandlers()
-    
+
     mockConsoleLog = mock(() => {})
     mockConsoleError = mock(() => {})
     console.log = mockConsoleLog
@@ -56,7 +55,7 @@ describe('comments command', () => {
   it('should fetch and display comments in pretty format', async () => {
     // Add comment handlers for this test
     server.use(...commentHandlers)
-    
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -67,7 +66,7 @@ describe('comments command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentsCommand('12345', {}).pipe(
@@ -78,7 +77,7 @@ describe('comments command', () => {
     await Effect.runPromise(program)
 
     // Check that comments were displayed
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('Found 3 comments')
     expect(output).toContain('Commit Message')
     expect(output).toContain('Please update the commit message')
@@ -90,7 +89,7 @@ describe('comments command', () => {
   it('should output XML format when --xml flag is used', async () => {
     // Add comment handlers for this test
     server.use(...commentHandlers)
-    
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -101,7 +100,7 @@ describe('comments command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentsCommand('12345', { xml: true }).pipe(
@@ -112,7 +111,7 @@ describe('comments command', () => {
     await Effect.runPromise(program)
 
     // Check XML output structure
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('<?xml version="1.0" encoding="UTF-8"?>')
     expect(output).toContain('<comments_result>')
     expect(output).toContain('<change_id>12345</change_id>')
@@ -120,7 +119,7 @@ describe('comments command', () => {
     expect(output).toContain('<message><![CDATA[Please update the commit message]]></message>')
     expect(output).toContain('<unresolved>true</unresolved>')
     expect(output).toContain('</comments_result>')
-    
+
     // Verify XML is well-formed
     expect(output.match(/<comment>/g)?.length).toBe(3)
     expect(output.match(/<\/comment>/g)?.length).toBe(3)
@@ -129,7 +128,7 @@ describe('comments command', () => {
   it('should handle no comments gracefully', async () => {
     // Use empty comments handlers for this test
     server.use(...emptyCommentsHandlers)
-    
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -140,7 +139,7 @@ describe('comments command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentsCommand('12345', {}).pipe(
@@ -150,7 +149,7 @@ describe('comments command', () => {
 
     await Effect.runPromise(program)
 
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('No comments found on this change')
   })
 
@@ -159,9 +158,9 @@ describe('comments command', () => {
     server.use(
       http.get('*/a/changes/:changeId/revisions/:revisionId/comments', () => {
         return HttpResponse.error()
-      })
+      }),
     )
-    
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -172,7 +171,7 @@ describe('comments command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentsCommand('12345', {}).pipe(
@@ -182,7 +181,7 @@ describe('comments command', () => {
 
     await Effect.runPromise(program)
 
-    const errorOutput = mockConsoleError.mock.calls.map(call => call[0]).join('\n')
+    const errorOutput = mockConsoleError.mock.calls.map((call) => call[0]).join('\n')
     expect(errorOutput).toContain('Failed to fetch comments')
   })
 
@@ -191,9 +190,9 @@ describe('comments command', () => {
     server.use(
       http.get('*/a/changes/:changeId/revisions/:revisionId/comments', () => {
         return HttpResponse.error()
-      })
+      }),
     )
-    
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -204,7 +203,7 @@ describe('comments command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentsCommand('12345', { xml: true }).pipe(
@@ -214,7 +213,7 @@ describe('comments command', () => {
 
     await Effect.runPromise(program)
 
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('<status>error</status>')
     expect(output).toContain('<error><![CDATA[')
   })
@@ -235,9 +234,9 @@ describe('comments command', () => {
       // Diff endpoint fails
       http.get('*/a/changes/:changeId/revisions/:revisionId/files/:filePath/diff', () => {
         return HttpResponse.error()
-      })
+      }),
     )
-    
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -248,7 +247,7 @@ describe('comments command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentsCommand('12345', {}).pipe(
@@ -259,19 +258,19 @@ describe('comments command', () => {
     await Effect.runPromise(program)
 
     // Should still display comment without context
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('Test comment')
     expect(output).toContain('src/file.ts')
   })
 
   it('should handle concurrent API calls efficiently', async () => {
-    let commentCallTime: number | null = null
+    let _commentCallTime: number | null = null
     let diffCallCount = 0
     const diffCallTimes: number[] = []
-    
+
     server.use(
       http.get('*/a/changes/:changeId/revisions/:revisionId/comments', async () => {
-        commentCallTime = Date.now()
+        _commentCallTime = Date.now()
         await delay(50) // Simulate network delay
         return HttpResponse.text(`)]}'\n{
           "file1.ts": [{"id": "c1", "message": "Comment 1", "line": 10}],
@@ -286,9 +285,9 @@ describe('comments command', () => {
         return HttpResponse.text(`)]}'\n{
           "content": [{"ab": ["line 1", "line 2"]}]
         }`)
-      })
+      }),
     )
-    
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -299,7 +298,7 @@ describe('comments command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const startTime = Date.now()
@@ -313,13 +312,13 @@ describe('comments command', () => {
 
     // Verify concurrent execution
     expect(diffCallCount).toBe(3) // 3 diff calls made
-    
+
     // All diff calls should start close together (within 100ms)
     // indicating concurrent execution, not sequential
     const firstDiffTime = diffCallTimes[0]
     const lastDiffTime = diffCallTimes[diffCallTimes.length - 1]
     expect(lastDiffTime - firstDiffTime).toBeLessThan(100)
-    
+
     // Total time should be less than sequential execution would take
     // Sequential: 50ms (comments) + 3 * 100ms (diffs) = 350ms
     // Concurrent: 50ms (comments) + 100ms (parallel diffs) = 150ms (plus overhead)
@@ -339,9 +338,9 @@ describe('comments command', () => {
             }
           }]
         }`)
-      })
+      }),
     )
-    
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -352,7 +351,7 @@ describe('comments command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentsCommand('12345', { xml: true }).pipe(
@@ -362,9 +361,11 @@ describe('comments command', () => {
 
     await Effect.runPromise(program)
 
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     // Message should be in CDATA
-    expect(output).toContain('<message><![CDATA[Test <script>alert(\'XSS\')</script> & entities]]></message>')
+    expect(output).toContain(
+      "<message><![CDATA[Test <script>alert('XSS')</script> & entities]]></message>",
+    )
     // Author name should be in CDATA
     expect(output).toContain('<name><![CDATA[User <>&"\']]></name>')
     // Email should be escaped
@@ -386,9 +387,9 @@ describe('comments command', () => {
             }
           }]
         }`)
-      })
+      }),
     )
-    
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -399,7 +400,7 @@ describe('comments command', () => {
         }),
         saveCredentials: () => Effect.succeed(undefined),
         deleteCredentials: Effect.succeed(undefined),
-      })
+      }),
     )
 
     const program = commentsCommand('12345', { xml: true }).pipe(
@@ -409,7 +410,7 @@ describe('comments command', () => {
 
     await Effect.runPromise(program)
 
-    const output = mockConsoleLog.mock.calls.map(call => call[0]).join('\n')
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('<range>')
     expect(output).toContain('<start_line>10</start_line>')
     expect(output).toContain('<end_line>15</end_line>')
