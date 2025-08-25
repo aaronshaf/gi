@@ -126,9 +126,9 @@ export const mineCommand = (options: MineOptions) =>
         if (!acc[change.project]) {
           acc[change.project] = []
         }
-        acc[change.project].push(change)
+        acc[change.project] = [...acc[change.project], change]
         return acc
-      }, {} as Record<string, typeof changes>)
+      }, {} as Record<string, ChangeInfo[]>)
       
       // Sort projects alphabetically
       const sortedProjects = Object.keys(changesByProject).sort()

@@ -47,7 +47,7 @@ export const commentCommand = (
       console.log(`<comment_result>`)
       console.log(`  <status>success</status>`)
       console.log(`  <change_id>${changeId}</change_id>`)
-      console.log(`  <change_number>${change.number}</change_number>`)
+      console.log(`  <change_number>${change._number}</change_number>`)
       console.log(`  <change_subject><![CDATA[${change.subject}]]></change_subject>`)
       console.log(`  <change_status>${change.status}</change_status>`)
       console.log(`  <message><![CDATA[${message}]]></message>`)
