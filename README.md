@@ -73,9 +73,11 @@ ger comment 12345 --pretty
 echo "Review text" | ger comment 12345
 
 # Post line-specific comment
+# Note: Line numbers refer to the post-merge view (right side of diff)
 ger comment 12345 --file src/main.ts --line 42 -m "Consider error handling"
 
 # Batch line-specific comments (JSON input)
+# Line numbers refer to the final file, not the diff
 echo '[
   {"path": "src/main.ts", "line": 10, "message": "Add type annotation"},
   {"path": "src/utils.ts", "line": 25, "message": "Extract to constant"}
