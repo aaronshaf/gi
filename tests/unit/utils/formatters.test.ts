@@ -169,7 +169,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('✓ ')
+      expect(result).toContain('✓')
     })
 
     test('should show approved Code-Review with value +2', () => {
@@ -179,7 +179,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('✓ ')
+      expect(result).toContain('✓')
     })
 
     test('should show rejected Code-Review indicator', () => {
@@ -191,7 +191,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('✗ ')
+      expect(result).toContain('✗')
     })
 
     test('should show rejected Code-Review with value -2', () => {
@@ -201,7 +201,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('✗ ')
+      expect(result).toContain('✗')
     })
 
     test('should show recommended Code-Review indicator', () => {
@@ -213,7 +213,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('↑ ')
+      expect(result).toContain('↑')
     })
 
     test('should show recommended Code-Review with value +1', () => {
@@ -223,7 +223,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('↑ ')
+      expect(result).toContain('↑')
     })
 
     test('should show disliked Code-Review indicator', () => {
@@ -235,7 +235,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('↓ ')
+      expect(result).toContain('↓')
     })
 
     test('should show disliked Code-Review with value -1', () => {
@@ -245,7 +245,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('↓ ')
+      expect(result).toContain('↓')
     })
 
     test('should show approved Verified indicator', () => {
@@ -309,7 +309,7 @@ describe('Formatters', () => {
         submittable: true,
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('✓ ')
+      expect(result).toContain('✓')
       expect(result).toContain('✓')
       expect(result).toContain('🚀')
     })
@@ -322,7 +322,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('↑ ')
+      expect(result).toContain('↑')
       expect(result).toContain('✗')
     })
 
@@ -334,7 +334,7 @@ describe('Formatters', () => {
         work_in_progress: true,
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('✓ ')
+      expect(result).toContain('✓')
       expect(result).toContain('🚧')
     })
 
@@ -370,7 +370,7 @@ describe('Formatters', () => {
         },
       })
       const result = getStatusIndicator(change)
-      expect(result).toContain('✓ ')
+      expect(result).toContain('✓')
     })
   })
 

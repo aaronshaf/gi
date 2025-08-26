@@ -35,7 +35,7 @@ describe('Interactive Incoming Command', () => {
       })
 
       const indicators = getStatusIndicators(change)
-      expect(indicators).toContain('✓ ')
+      expect(indicators).toContain('✓')
       expect(indicators.length).toBeGreaterThan(0)
     })
 
@@ -47,7 +47,7 @@ describe('Interactive Incoming Command', () => {
       })
 
       const indicators = getStatusIndicators(change)
-      expect(indicators).toContain('✗ ')
+      expect(indicators).toContain('✗')
     })
 
     test('should generate padded status string', () => {
@@ -58,7 +58,7 @@ describe('Interactive Incoming Command', () => {
       })
 
       const statusString = getStatusString(change, undefined, 8)
-      expect(statusString).toContain('↑ ')
+      expect(statusString).toContain('↑')
       expect(statusString.length).toBe(8)
     })
 

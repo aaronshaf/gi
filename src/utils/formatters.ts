@@ -38,13 +38,13 @@ export const getStatusIndicator = (change: ChangeInfo): string => {
     if (change.labels['Code-Review']) {
       const cr = change.labels['Code-Review']
       if (cr.approved || cr.value === 2) {
-        indicators.push(`${colors.green}✓ ${colors.reset}`)
+        indicators.push(`${colors.green}✓${colors.reset}`)
       } else if (cr.rejected || cr.value === -2) {
-        indicators.push(`${colors.red}✗ ${colors.reset}`)
+        indicators.push(`${colors.red}✗${colors.reset}`)
       } else if (cr.recommended || cr.value === 1) {
-        indicators.push(`${colors.cyan}↑ ${colors.reset}`)
+        indicators.push(`${colors.cyan}↑${colors.reset}`)
       } else if (cr.disliked || cr.value === -1) {
-        indicators.push(`${colors.yellow}↓ ${colors.reset}`)
+        indicators.push(`${colors.yellow}↓${colors.reset}`)
       }
     }
 
@@ -52,9 +52,9 @@ export const getStatusIndicator = (change: ChangeInfo): string => {
     if (change.labels.Verified) {
       const v = change.labels.Verified
       if (v.approved || v.value === 1) {
-        indicators.push(`${colors.green}✓ ${colors.reset}`)
+        indicators.push(`${colors.green}✓${colors.reset}`)
       } else if (v.rejected || v.value === -1) {
-        indicators.push(`${colors.red}✗ ${colors.reset}`)
+        indicators.push(`${colors.red}✗${colors.reset}`)
       }
     }
   }
@@ -69,7 +69,7 @@ export const getStatusIndicator = (change: ChangeInfo): string => {
     indicators.push('🚧')
   }
 
-  return indicators.length > 0 ? indicators.join(' ') : ''
+  return indicators.length > 0 ? indicators.join('  ') : '' // Double space for proper alignment
 }
 
 export const colors = {

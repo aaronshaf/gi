@@ -106,33 +106,46 @@ export const incomingCommand = (
 
           // Build status indicators
           const indicators: string[] = []
+          const indicatorChars: string[] = [] // Track visual characters for padding
+
           if (change.labels?.['Code-Review']) {
             const cr = change.labels['Code-Review']
-            if (cr.approved || cr.value === 2) indicators.push(`${colors.green}✓ ${colors.reset}`)
-            else if (cr.rejected || cr.value === -2)
-              indicators.push(`${colors.red}✗ ${colors.reset}`)
-            else if (cr.recommended || cr.value === 1)
-              indicators.push(`${colors.cyan}↑ ${colors.reset}`)
-            else if (cr.disliked || cr.value === -1)
-              indicators.push(`${colors.yellow}↓ ${colors.reset}`)
+            if (cr.approved || cr.value === 2) {
+              indicators.push(`${colors.green}✓${colors.reset}`)
+              indicatorChars.push('✓')
+            } else if (cr.rejected || cr.value === -2) {
+              indicators.push(`${colors.red}✗${colors.reset}`)
+              indicatorChars.push('✗')
+            } else if (cr.recommended || cr.value === 1) {
+              indicators.push(`${colors.cyan}↑${colors.reset}`)
+              indicatorChars.push('↑')
+            } else if (cr.disliked || cr.value === -1) {
+              indicators.push(`${colors.yellow}↓${colors.reset}`)
+              indicatorChars.push('↓')
+            }
           }
 
           // Check for Verified label as well
           if (change.labels?.['Verified']) {
             const v = change.labels.Verified
             if (v.approved || v.value === 1) {
-              if (!indicators.some((i) => i.includes('✓')))
-                indicators.push(`${colors.green}✓ ${colors.reset}`)
+              if (!indicatorChars.includes('✓')) {
+                indicators.push(`${colors.green}✓${colors.reset}`)
+                indicatorChars.push('✓')
+              }
             } else if (v.rejected || v.value === -1) {
-              indicators.push(`${colors.red}✗ ${colors.reset}`)
+              indicators.push(`${colors.red}✗${colors.reset}`)
+              indicatorChars.push('✗')
             }
           }
 
-          const statusStr = indicators.length > 0 ? indicators.join(' ') : '        '
-          const paddedStatus = statusStr.padEnd(8, ' ')
+          // Calculate padding based on visual characters, not color codes
+          const visualWidth = indicatorChars.join('  ').length
+          const padding = ' '.repeat(Math.max(0, 8 - visualWidth))
+          const statusStr = indicators.length > 0 ? indicators.join('  ') + padding : '        '
 
           console.log(
-            `${paddedStatus} ${change._number}  ${change.subject} ${colors.dim}(by ${ownerName})${colors.reset}`,
+            `${statusStr} ${change._number}  ${change.subject} ${colors.dim}(by ${ownerName})${colors.reset}`,
           )
         }
       }
