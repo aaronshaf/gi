@@ -93,4 +93,11 @@
 - **MINIMIZE** API calls through smart caching
 - **OPTIMIZE** bundle size for fast CLI startup
 
+## Commands
+- **show** - Comprehensive change information including metadata, diff, and all comments
+- **comment** - Post comments with piped input support for AI integration
+- **diff** - Get diffs with various formatting options
+- **comments** - View all comments on a change with context
+- **incoming/mine/abandon/open** - Change management commands
+
 Remember: This is a CLI tool, not a web app. No React components, no .tsx files, no Playwright tests.

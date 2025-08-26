@@ -12,6 +12,7 @@ import { incomingCommand } from './commands/incoming'
 import { initCommand } from './commands/init'
 import { mineCommand } from './commands/mine'
 import { openCommand } from './commands/open'
+import { showCommand } from './commands/show'
 import { statusCommand } from './commands/status'
 import { workspaceCommand } from './commands/workspace'
 
@@ -301,6 +302,34 @@ program
       await Effect.runPromise(effect)
     } catch (error) {
       console.error('✗ Error:', error instanceof Error ? error.message : String(error))
+      process.exit(1)
+    }
+  })
+
+// show command
+program
+  .command('show <change-id>')
+  .description('Show comprehensive change information including metadata, diff, and all comments')
+  .option('--xml', 'XML output for LLM consumption')
+  .action(async (changeId, options) => {
+    try {
+      const effect = showCommand(changeId, options).pipe(
+        Effect.provide(GerritApiServiceLive),
+        Effect.provide(ConfigServiceLive),
+      )
+      await Effect.runPromise(effect)
+    } catch (error) {
+      if (options.xml) {
+        console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
+        console.log(`<show_result>`)
+        console.log(`  <status>error</status>`)
+        console.log(
+          `  <error><![CDATA[${error instanceof Error ? error.message : String(error)}]]></error>`,
+        )
+        console.log(`</show_result>`)
+      } else {
+        console.error('✗ Error:', error instanceof Error ? error.message : String(error))
+      }
       process.exit(1)
     }
   })
