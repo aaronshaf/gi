@@ -5,9 +5,15 @@ Command-line interface for Gerrit Code Review. XML output by default for LLM/aut
 ## Features
 
 - **LLM-Friendly**: XML output for AI/automation pipelines
-- **Interactive UI**: Terminal UI for change selection and navigation
+- **Interactive UI**: Terminal UI for change selection and navigation  
 - **Secure**: Credentials stored in system keychain
 - **Effect-based**: Robust error handling and functional architecture
+- **Advanced Batch Comments**: 
+  - Line-specific and multi-line range comments
+  - PARENT/REVISION side targeting for precise diff comments
+  - Character-level precision for highlighting specific code segments
+  - Unresolved flag for tracking issues that need attention
+  - JSON array input for easy AI tool integration
 
 ## Installation
 
@@ -87,6 +93,30 @@ ger comment 12345 --file src/main.ts --line 42 -m "Fix this" --unresolved
 ```
 
 #### Batch Line Comments (JSON Array)
+
+The batch comment feature accepts a JSON array of comment objects. Each comment can target specific lines, ranges, or sides of the diff.
+
+##### Basic Structure
+```json
+[
+  {
+    "file": "path/to/file.js",       // Required: File path
+    "line": 42,                       // Optional: Line number (omit when using range)
+    "message": "Your comment",        // Required: Comment text
+    "side": "REVISION",               // Optional: "PARENT" or "REVISION" (default: REVISION)
+    "range": {                        // Optional: Comment on multiple lines or characters
+      "start_line": 10,
+      "end_line": 20,
+      "start_character": 0,           // Optional: Character position (0-indexed)
+      "end_character": 80
+    },
+    "unresolved": true                // Optional: Mark as unresolved (default: false)
+  }
+]
+```
+
+##### Examples
+
 ```bash
 # Basic batch comments
 echo '[
@@ -95,45 +125,50 @@ echo '[
   {"file": "src/api.ts", "line": 100, "message": "Handle error", "unresolved": true}
 ]' | ger comment 12345 --batch
 
-# With side parameter (PARENT or REVISION)
+# Comment on different sides of the diff
+# PARENT: The original code before changes
+# REVISION: The new code after changes
 echo '[
   {"file": "src/Calculator.java", "line": 5, "side": "PARENT", "message": "Why was this removed?"},
   {"file": "src/Calculator.java", "line": 5, "side": "REVISION", "message": "Good improvement"}
 ]' | ger comment 12345 --batch
 
-# With range comments (multi-line or character-specific)
+# Range comments for blocks of code
 echo '[
   {
     "file": "src/Service.java",
     "range": {"start_line": 50, "end_line": 55},
-    "message": "This block needs refactoring"
+    "message": "This entire method needs refactoring"
   },
   {
     "file": "src/Service.java",
     "range": {"start_line": 10, "start_character": 8, "end_line": 10, "end_character": 25},
-    "message": "Variable name is confusing"
+    "message": "This variable name is confusing"
   }
 ]' | ger comment 12345 --batch
 
-# Combined: range + side + unresolved
+# Combined features: range + side + unresolved
 echo '[
   {
     "file": "src/UserService.java",
     "range": {"start_line": 20, "end_line": 35},
     "side": "PARENT",
-    "message": "Why was error handling removed?",
+    "message": "Why was this error handling removed?",
     "unresolved": true
   },
   {
     "file": "src/UserService.java",
     "range": {"start_line": 20, "end_line": 35},
     "side": "REVISION",
-    "message": "New error handling looks good, but consider extracting"
+    "message": "New error handling looks good, but consider extracting to a method"
   }
 ]' | ger comment 12345 --batch
 
-# From a file
+# Load comments from a file
 cat comments.json | ger comment 12345 --batch
+
+# AI-generated code review integration
+ai-review-tool analyze . | ger comment 12345 --batch
 ```
 
 #### View Comments
