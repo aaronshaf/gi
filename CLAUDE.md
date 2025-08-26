@@ -41,6 +41,7 @@
 - **RUN** type-checking in pre-commit and pre-push hooks
 - **RUN** oxlint in pre-commit and pre-push hooks
 - **RUN** biome formatter before commits
+- **RUN** `bun run build` after making changes to ensure compilation succeeds
 - **USE** ast-grep to enforce no `as` typecasting rule
 - **CHECK** file sizes in pre-commit and pre-push hooks
 - **EXCLUDE** generated code and tmp/ from all checks
