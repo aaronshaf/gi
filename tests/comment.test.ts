@@ -306,6 +306,55 @@ describe('comment command', () => {
     expect(output).toContain('<message><![CDATA[Fix this]]></message>')
   })
 
+  it('should provide detailed error for invalid JSON with input preview', async () => {
+    const originalStdin = process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: mockProcessStdin,
+      configurable: true,
+    })
+
+    const mockConfigLayer = Layer.succeed(
+      ConfigService,
+      ConfigService.of({
+        getCredentials: Effect.succeed({
+          host: 'https://gerrit.example.com',
+          username: 'testuser',
+          password: 'testpass',
+        }),
+        saveCredentials: () => Effect.succeed(undefined),
+        deleteCredentials: Effect.succeed(undefined),
+      }),
+    )
+
+    const program = commentCommand('12345', { batch: true }).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    const malformedJson = `[
+      {
+        "file": "src/main.js",
+        "line": 10,
+        "message": "This is an unterminated string
+      }
+    ]`
+
+    // Simulate invalid JSON input
+    setTimeout(() => {
+      mockProcessStdin.emit(malformedJson)
+    }, 10)
+
+    await expect(Effect.runPromise(program)).rejects.toThrow(
+      /Invalid JSON input: .*Unterminated string.*\nInput \(\d+ chars, \d+ lines\):\n.*src\/main\.js.*\nExpected format:/s,
+    )
+
+    // Restore process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: originalStdin,
+      configurable: true,
+    })
+  })
+
   it('should reject invalid batch JSON', async () => {
     const originalStdin = process.stdin
     Object.defineProperty(process, 'stdin', {

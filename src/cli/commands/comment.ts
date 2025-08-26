@@ -61,8 +61,22 @@ const readStdin = Effect.async<string, Error>((callback) => {
 const parseJson = (data: string): Effect.Effect<unknown, Error> =>
   Effect.try({
     try: () => JSON.parse(data),
-    catch: (error) =>
-      new Error(`Invalid JSON input: ${error instanceof Error ? error.message : 'parse error'}`),
+    catch: (error) => {
+      const errorMsg = error instanceof Error ? error.message : 'parse error'
+      const lines = data.split('\n')
+      const lineCount = lines.length
+
+      // Show first few lines to help identify the issue
+      const preview = lines.slice(0, 10).join('\n')
+      const truncated = lineCount > 10 ? `\n... (${lineCount - 10} more lines)` : ''
+
+      return new Error(
+        `Invalid JSON input: ${errorMsg}\n` +
+          `Input (${data.length} chars, ${lineCount} lines):\n` +
+          `${preview}${truncated}\n\n` +
+          `Expected format: [{"file": "path/to/file", "line": 123, "message": "comment text"}]`,
+      )
+    },
   })
 
 // Helper to build ReviewInput from batch data
