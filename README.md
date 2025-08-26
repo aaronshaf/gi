@@ -161,9 +161,6 @@ echo '[
 
 # Load comments from a file
 cat comments.json | ger comment 12345 --batch
-
-# AI-generated code review integration
-ai-review-tool analyze . | ger comment 12345 --batch
 ```
 
 #### View Comments
