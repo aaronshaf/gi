@@ -23,6 +23,16 @@ export const incomingCommand = (
     )
 
     if (options.interactive) {
+      // Check if we're in a TTY environment (required for Ink)
+      if (!process.stdin.isTTY) {
+        console.error(`${colors.red}✗ Interactive mode requires a TTY terminal${colors.reset}`)
+        console.error(
+          `${colors.yellow}  Running from within Claude Code or piped input is not supported${colors.reset}`,
+        )
+        console.error(`${colors.yellow}  Try running without --interactive flag${colors.reset}`)
+        return
+      }
+
       // Get Gerrit host for opening changes in browser
       const configService = yield* ConfigService
       const credentials = yield* configService.getCredentials
