@@ -17,12 +17,12 @@ export interface StatusIndicatorConfig {
  * Default status indicators using emoji
  */
 export const DEFAULT_STATUS_INDICATORS: StatusIndicatorConfig = {
-  approved: '✅',
-  rejected: '❌',
-  recommended: '👍',
-  disliked: '👎',
-  verified: '✅',
-  failed: '❌',
+  approved: '✓ ',
+  rejected: '✗ ',
+  recommended: '↑ ',
+  disliked: '↓ ',
+  verified: '✓ ',
+  failed: '✗ ',
   empty: '  ',
 }
 

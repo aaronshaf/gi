@@ -19,7 +19,7 @@ describe('Status Indicators Utility', () => {
       })
 
       const indicators = getStatusIndicators(change)
-      expect(indicators).toEqual(['✅'])
+      expect(indicators).toEqual(['✓ '])
     })
 
     test('should return rejected indicators for rejected changes', () => {
@@ -31,7 +31,7 @@ describe('Status Indicators Utility', () => {
       })
 
       const indicators = getStatusIndicators(change)
-      expect(indicators).toEqual(['❌', '❌'])
+      expect(indicators).toEqual(['✗ ', '✗ '])
     })
 
     test('should return recommended and disliked indicators', () => {
@@ -47,8 +47,8 @@ describe('Status Indicators Utility', () => {
         },
       })
 
-      expect(getStatusIndicators(change1)).toEqual(['👍'])
-      expect(getStatusIndicators(change2)).toEqual(['👎'])
+      expect(getStatusIndicators(change1)).toEqual(['↑ '])
+      expect(getStatusIndicators(change2)).toEqual(['↓ '])
     })
 
     test('should handle empty labels', () => {
@@ -88,7 +88,7 @@ describe('Status Indicators Utility', () => {
       })
 
       const statusString = getStatusString(change, undefined, 10)
-      expect(statusString).toBe('👍        ')
+      expect(statusString).toBe('↑         ')
       expect(statusString.length).toBe(10)
     })
 

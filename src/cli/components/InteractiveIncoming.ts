@@ -276,10 +276,10 @@ function renderHelpView(): React.ReactElement {
     React.createElement(Text, { key: 'spacer2' }, ''),
 
     React.createElement(Text, { key: 'status-title', bold: true }, 'Status Indicators:'),
-    React.createElement(Text, { key: 'approved' }, '  ✅ - Approved/Verified'),
-    React.createElement(Text, { key: 'rejected' }, '  ❌ - Rejected/Failed'),
-    React.createElement(Text, { key: 'recommended' }, '  👍 - Recommended (+1)'),
-    React.createElement(Text, { key: 'disliked' }, '  👎 - Disliked (-1)'),
+    React.createElement(Text, { key: 'approved' }, '  ✓ - Approved/Verified'),
+    React.createElement(Text, { key: 'rejected' }, '  ✗ - Rejected/Failed'),
+    React.createElement(Text, { key: 'recommended' }, '  ↑ - Recommended (+1)'),
+    React.createElement(Text, { key: 'disliked' }, '  ↓ - Disliked (-1)'),
     React.createElement(Text, { key: 'spacer3' }, ''),
 
     React.createElement(

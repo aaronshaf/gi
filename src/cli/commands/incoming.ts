@@ -108,19 +108,19 @@ export const incomingCommand = (
           const indicators: string[] = []
           if (change.labels?.['Code-Review']) {
             const cr = change.labels['Code-Review']
-            if (cr.approved || cr.value === 2) indicators.push('✅')
-            else if (cr.rejected || cr.value === -2) indicators.push('❌')
-            else if (cr.recommended || cr.value === 1) indicators.push('👍')
-            else if (cr.disliked || cr.value === -1) indicators.push('👎')
+            if (cr.approved || cr.value === 2) indicators.push('✓ ')
+            else if (cr.rejected || cr.value === -2) indicators.push('✗ ')
+            else if (cr.recommended || cr.value === 1) indicators.push('↑ ')
+            else if (cr.disliked || cr.value === -1) indicators.push('↓ ')
           }
 
           // Check for Verified label as well
           if (change.labels?.['Verified']) {
             const v = change.labels.Verified
             if (v.approved || v.value === 1) {
-              if (!indicators.includes('✅')) indicators.push('✅')
+              if (!indicators.includes('✓ ')) indicators.push('✓ ')
             } else if (v.rejected || v.value === -1) {
-              indicators.push('❌')
+              indicators.push('✗ ')
             }
           }
 
