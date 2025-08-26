@@ -5,17 +5,47 @@ An LLM-centric command-line interface for Gerrit Code Review. Outputs XML by def
 ## Features
 
 - **LLM-First Design**: XML output by default for AI/LLM consumption
-- **Simple & Direct**: No caching, always fresh data from Gerrit
+- **Interactive Mode**: Rich terminal UI with Gerrit-style keyboard shortcuts
+- **Simple & Direct**: No caching, always fresh data from Gerrit  
 - **Secure**: Credentials stored in system keychain via keytar
 - **Effect-based**: Built with Effect for robust error handling
 
+### Interactive Mode Features
+
+- **Gerrit-style Navigation**: `j/k` for up/down, `g/G` for first/last
+- **Rich Visual Interface**: Bordered sections, emoji icons, status indicators
+- **Quick Actions**: `c` for change details, `d` for diff, `o` to open in browser
+- **Project Organization**: Changes grouped by project with visual hierarchy
+- **Real-time Info**: Relative timestamps, label status, owner information
+
 ## Installation
 
+### From Source
+
 ```bash
-git clone https://github.com/your-org/ger
+git clone https://github.com/aaronshaf/ger
 cd ger
 bun install
+
+# For development (uses bun directly)
+./bin/ger --help
+
+# For production (builds standalone binary)
 bun run build
+./bin/ger --help
+```
+
+### Build Commands
+
+```bash
+# Clean build artifacts
+bun run clean
+
+# Build standalone binary (not committed to git)
+bun run build
+
+# Install globally for development
+bun run install:local
 ```
 
 ## Setup
@@ -84,6 +114,27 @@ ger abandon 12345 --pretty
 
 # With reason
 ger abandon 12345 -m "Superseded by change 12346"
+```
+
+### Incoming Changes
+```bash
+# List incoming changes (XML output)
+ger incoming
+
+# Human-readable output  
+ger incoming --pretty
+
+# Interactive mode with Gerrit-style keyboard shortcuts
+ger incoming --interactive
+```
+
+### Open Changes in Browser
+```bash
+# Open change by number
+ger open 12345
+
+# Open change by URL (extracts change number)
+ger open https://gerrit.example.com/c/project/+/12345
 ```
 
 ### Workspace Operations
