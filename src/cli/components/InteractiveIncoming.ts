@@ -276,6 +276,35 @@ function renderDetailView(change: ChangeInfo): React.ReactElement {
   ])
 }
 
+function renderHelpView(): React.ReactElement {
+  return React.createElement(Box, { flexDirection: 'column', padding: 1 }, [
+    React.createElement(Text, { key: 'title', bold: true, color: 'cyan' }, 'Help'),
+    React.createElement(Text, { key: 'spacer1' }, ''),
+
+    React.createElement(Text, { key: 'navigation-title', bold: true }, 'Navigation:'),
+    React.createElement(Text, { key: 'up-down' }, '  ↑/↓ - Navigate changes'),
+    React.createElement(Text, { key: 'enter-detail' }, '  Enter/d - View change details'),
+    React.createElement(Text, { key: 'diff' }, '  f - View diff (placeholder)'),
+    React.createElement(Text, { key: 'open' }, '  o - Open change in browser'),
+    React.createElement(Text, { key: 'back' }, '  b/← - Back to previous view'),
+    React.createElement(Text, { key: 'quit' }, '  q - Quit'),
+    React.createElement(Text, { key: 'spacer2' }, ''),
+
+    React.createElement(Text, { key: 'status-title', bold: true }, 'Status Indicators:'),
+    React.createElement(Text, { key: 'approved' }, '  ✅ - Approved/Verified'),
+    React.createElement(Text, { key: 'rejected' }, '  ❌ - Rejected/Failed'),
+    React.createElement(Text, { key: 'recommended' }, '  👍 - Recommended (+1)'),
+    React.createElement(Text, { key: 'disliked' }, '  👎 - Disliked (-1)'),
+    React.createElement(Text, { key: 'spacer3' }, ''),
+
+    React.createElement(
+      Text,
+      { key: 'back-help', dimColor: true },
+      'Press q to go back or Ctrl+C to exit',
+    ),
+  ])
+}
+
 function renderDiffView(change: ChangeInfo): React.ReactElement {
   return React.createElement(Box, { flexDirection: 'column', padding: 1 }, [
     React.createElement(
