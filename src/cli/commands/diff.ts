@@ -1,9 +1,10 @@
 import { Effect } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
 import type { DiffOptions } from '@/schemas/gerrit'
+import { formatDiffPretty, formatFilesList } from '@/utils/diff-formatters'
 
 interface DiffCommandOptions {
-  pretty?: boolean
+  xml?: boolean
   file?: string
   filesOnly?: boolean
   format?: 'unified' | 'json' | 'files'
@@ -29,19 +30,7 @@ export const diffCommand = (
         ),
       )
 
-    if (options.pretty) {
-      // Human-readable output
-      if (Array.isArray(diff)) {
-        console.log('Changed files:')
-        for (const file of diff) {
-          console.log(`  - ${file}`)
-        }
-      } else if (typeof diff === 'string') {
-        console.log(diff)
-      } else {
-        console.log(JSON.stringify(diff, null, 2))
-      }
-    } else {
+    if (options.xml) {
       // XML output for LLM consumption
       console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
       console.log(`<diff_result>`)
@@ -61,5 +50,15 @@ export const diffCommand = (
       }
 
       console.log(`</diff_result>`)
+    } else {
+      // Human-readable output (default) - pretty formatted
+      if (Array.isArray(diff)) {
+        console.log(formatFilesList(diff))
+      } else if (typeof diff === 'string') {
+        console.log(formatDiffPretty(diff))
+      } else {
+        // JSON data - format as pretty JSON for readability
+        console.log(JSON.stringify(diff, null, 2))
+      }
     }
   })
