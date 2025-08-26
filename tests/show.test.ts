@@ -1,0 +1,381 @@
+import { describe, test, expect, beforeAll, afterAll, afterEach, mock } from 'bun:test'
+import { setupServer } from 'msw/node'
+import { http, HttpResponse } from 'msw'
+import { Effect, Layer } from 'effect'
+import { showCommand } from '@/cli/commands/show'
+import { GerritApiServiceLive } from '@/api/gerrit'
+import { ConfigService } from '@/services/config'
+import { generateMockChange } from '@/test-utils/mock-generator'
+
+const server = setupServer(
+  // Default handler for auth check
+  http.get('*/a/accounts/self', ({ request }) => {
+    const auth = request.headers.get('Authorization')
+    if (!auth || !auth.startsWith('Basic ')) {
+      return HttpResponse.text('Unauthorized', { status: 401 })
+    }
+    return HttpResponse.json({
+      _account_id: 1000,
+      name: 'Test User',
+      email: 'test@example.com',
+    })
+  }),
+)
+
+// Store captured output
+let capturedLogs: string[] = []
+let capturedErrors: string[] = []
+
+// Mock console.log and console.error
+const mockConsoleLog = mock((...args: any[]) => {
+  capturedLogs.push(args.join(' '))
+})
+const mockConsoleError = mock((...args: any[]) => {
+  capturedErrors.push(args.join(' '))
+})
+
+// Store original console methods
+const originalConsoleLog = console.log
+const originalConsoleError = console.error
+
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'bypass' })
+  // @ts-ignore
+  console.log = mockConsoleLog
+  // @ts-ignore
+  console.error = mockConsoleError
+})
+
+afterAll(() => {
+  server.close()
+  console.log = originalConsoleLog
+  console.error = originalConsoleError
+})
+
+afterEach(() => {
+  server.resetHandlers()
+  mockConsoleLog.mockClear()
+  mockConsoleError.mockClear()
+  capturedLogs = []
+  capturedErrors = []
+})
+
+describe('show command', () => {
+  const mockChange = generateMockChange({
+    _number: 12345,
+    change_id: 'I123abc456def',
+    subject: 'Fix authentication bug',
+    status: 'NEW',
+    project: 'test-project',
+    branch: 'main',
+    created: '2024-01-15 10:00:00.000000000',
+    updated: '2024-01-15 12:00:00.000000000',
+    owner: {
+      _account_id: 1001,
+      name: 'John Doe',
+      email: 'john@example.com',
+    },
+  })
+
+  const mockDiff = `--- a/src/auth.js
++++ b/src/auth.js
+@@ -10,7 +10,8 @@ function authenticate(user) {
+   if (!user) {
+-    return false
++    throw new Error('User required')
+   }
++  // Added validation
+   return validateUser(user)
+ }`
+
+  const mockComments = {
+    'src/auth.js': [
+      {
+        id: 'comment1',
+        path: 'src/auth.js',
+        line: 12,
+        message: 'Good improvement!',
+        author: {
+          name: 'Jane Reviewer',
+          email: 'jane@example.com',
+        },
+        updated: '2024-01-15 11:30:00.000000000',
+        unresolved: false,
+      },
+      {
+        id: 'comment2',
+        path: 'src/auth.js',
+        line: 14,
+        message: 'Consider adding JSDoc',
+        author: {
+          name: 'Bob Reviewer',
+          email: 'bob@example.com',
+        },
+        updated: '2024-01-15 11:45:00.000000000',
+        unresolved: true,
+      },
+    ],
+    '/COMMIT_MSG': [
+      {
+        id: 'comment3',
+        path: '/COMMIT_MSG',
+        line: 1,
+        message: 'Clear commit message',
+        author: {
+          name: 'Alice Lead',
+          email: 'alice@example.com',
+        },
+        updated: '2024-01-15 11:00:00.000000000',
+        unresolved: false,
+      },
+    ],
+  }
+
+  const setupMockHandlers = () => {
+    server.use(
+      // Get change details
+      http.get('*/a/changes/:changeId', () => {
+        return HttpResponse.text(`)]}'\n${JSON.stringify(mockChange)}`)
+      }),
+      // Get diff (returns base64-encoded content)
+      http.get('*/a/changes/:changeId/revisions/current/patch', () => {
+        return HttpResponse.text(btoa(mockDiff))
+      }),
+      // Get comments
+      http.get('*/a/changes/:changeId/revisions/current/comments', () => {
+        return HttpResponse.text(`)]}'\n${JSON.stringify(mockComments)}`)
+      }),
+      // Get file diff for context (optional, may fail gracefully)
+      http.get('*/a/changes/:changeId/revisions/current/files/:fileName/diff', () => {
+        return HttpResponse.text(mockDiff)
+      }),
+    )
+  }
+
+  const createMockConfigLayer = () =>
+    Layer.succeed(
+      ConfigService,
+      ConfigService.of({
+        getCredentials: Effect.succeed({
+          host: 'https://gerrit.example.com',
+          username: 'testuser',
+          password: 'testpass',
+        }),
+        saveCredentials: () => Effect.succeed(undefined),
+        deleteCredentials: Effect.succeed(undefined),
+      }),
+    )
+
+  test('should display comprehensive change information in pretty format', async () => {
+    setupMockHandlers()
+
+    const mockConfigLayer = createMockConfigLayer()
+    const program = showCommand('12345', {}).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    await Effect.runPromise(program)
+
+    const output = capturedLogs.join('\n')
+
+    // Check that all sections are present
+    expect(output).toContain('📋 Change 12345: Fix authentication bug')
+    expect(output).toContain('📝 Details:')
+    expect(output).toContain('Project: test-project')
+    expect(output).toContain('Branch: main')
+    expect(output).toContain('Status: NEW')
+    expect(output).toContain('Owner: John Doe')
+    expect(output).toContain('Change-Id: I123abc456def')
+    expect(output).toContain('🔍 Diff:')
+    expect(output).toContain('💬 Comments:')
+
+    // Check diff content is included
+    expect(output).toContain('src/auth.js')
+    expect(output).toContain('authenticate(user)')
+
+    // Check comments are included
+    expect(output).toContain('Good improvement!')
+    expect(output).toContain('Consider adding JSDoc')
+    expect(output).toContain('Clear commit message')
+  })
+
+  test('should output XML format when --xml flag is used', async () => {
+    setupMockHandlers()
+
+    const mockConfigLayer = createMockConfigLayer()
+    const program = showCommand('12345', { xml: true }).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    await Effect.runPromise(program)
+
+    const output = capturedLogs.join('\n')
+
+    expect(output).toContain('<?xml version="1.0" encoding="UTF-8"?>')
+    expect(output).toContain('<show_result>')
+    expect(output).toContain('<status>success</status>')
+    expect(output).toContain('<change>')
+    expect(output).toContain('<id>I123abc456def</id>')
+    expect(output).toContain('<number>12345</number>')
+    expect(output).toContain('<subject><![CDATA[Fix authentication bug]]></subject>')
+    expect(output).toContain('<status>NEW</status>')
+    expect(output).toContain('<project>test-project</project>')
+    expect(output).toContain('<branch>main</branch>')
+    expect(output).toContain('<owner>')
+    expect(output).toContain('<name><![CDATA[John Doe]]></name>')
+    expect(output).toContain('<email>john@example.com</email>')
+    expect(output).toContain('<diff><![CDATA[')
+    expect(output).toContain('<comments>')
+    expect(output).toContain('<count>3</count>')
+    expect(output).toContain('</show_result>')
+  })
+
+  test('should handle API errors gracefully in pretty format', async () => {
+    server.use(
+      http.get('*/a/changes/:changeId', () => {
+        return HttpResponse.json({ error: 'Change not found' }, { status: 404 })
+      }),
+    )
+
+    const mockConfigLayer = createMockConfigLayer()
+    const program = showCommand('12345', {}).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    await Effect.runPromise(program)
+
+    const output = capturedErrors.join('\n')
+    expect(output).toContain('✗ Failed to fetch change details')
+  })
+
+  test('should handle API errors gracefully in XML format', async () => {
+    server.use(
+      http.get('*/a/changes/:changeId', () => {
+        return HttpResponse.json({ error: 'Change not found' }, { status: 404 })
+      }),
+    )
+
+    const mockConfigLayer = createMockConfigLayer()
+    const program = showCommand('12345', { xml: true }).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    await Effect.runPromise(program)
+
+    const output = capturedLogs.join('\n')
+
+    expect(output).toContain('<?xml version="1.0" encoding="UTF-8"?>')
+    expect(output).toContain('<show_result>')
+    expect(output).toContain('<status>error</status>')
+    expect(output).toContain('<error><![CDATA[')
+    expect(output).toContain('</show_result>')
+  })
+
+  test('should properly escape XML special characters', async () => {
+    const changeWithSpecialChars = generateMockChange({
+      _number: 12345,
+      change_id: 'I123abc456def',
+      subject: 'Fix "quotes" & <tags> in auth',
+      project: 'test-project',
+      branch: 'feature/fix&improve',
+      owner: {
+        _account_id: 1002,
+        name: 'User <with> & "special" chars',
+        email: 'user@example.com',
+      },
+    })
+
+    server.use(
+      http.get('*/a/changes/:changeId', () => {
+        return HttpResponse.text(`)]}'\n${JSON.stringify(changeWithSpecialChars)}`)
+      }),
+      http.get('*/a/changes/:changeId/revisions/current/patch', () => {
+        return HttpResponse.text('diff content')
+      }),
+      http.get('*/a/changes/:changeId/revisions/current/comments', () => {
+        return HttpResponse.text(`)]}'\n{}`)
+      }),
+    )
+
+    const mockConfigLayer = createMockConfigLayer()
+    const program = showCommand('12345', { xml: true }).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    await Effect.runPromise(program)
+
+    const output = capturedLogs.join('\n')
+
+    expect(output).toContain('<subject><![CDATA[Fix "quotes" & <tags> in auth]]></subject>')
+    expect(output).toContain('<branch>feature/fix&amp;improve</branch>')
+    expect(output).toContain('<name><![CDATA[User <with> & "special" chars]]></name>')
+  })
+
+  test('should handle mixed file and commit message comments', async () => {
+    setupMockHandlers()
+
+    const mockConfigLayer = createMockConfigLayer()
+    const program = showCommand('12345', {}).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    await Effect.runPromise(program)
+
+    const output = capturedLogs.join('\n')
+
+    // Should show comments from both files and commit message
+    expect(output).toContain('Good improvement!')
+    expect(output).toContain('Consider adding JSDoc')
+    expect(output).toContain('Clear commit message')
+
+    // Commit message path should be renamed
+    expect(output).toContain('Commit Message')
+    expect(output).not.toContain('/COMMIT_MSG')
+  })
+
+  test('should handle changes with missing optional fields', async () => {
+    const minimalChange = generateMockChange({
+      _number: 12345,
+      change_id: 'I123abc456def',
+      subject: 'Minimal change',
+      status: 'NEW',
+      project: 'test-project',
+      branch: 'main',
+      owner: {
+        _account_id: 1003,
+        email: 'user@example.com',
+      },
+    })
+
+    server.use(
+      http.get('*/a/changes/:changeId', () => {
+        return HttpResponse.text(`)]}'\n${JSON.stringify(minimalChange)}`)
+      }),
+      http.get('*/a/changes/:changeId/revisions/current/patch', () => {
+        return HttpResponse.text('minimal diff')
+      }),
+      http.get('*/a/changes/:changeId/revisions/current/comments', () => {
+        return HttpResponse.text(`)]}'\n{}`)
+      }),
+    )
+
+    const mockConfigLayer = createMockConfigLayer()
+    const program = showCommand('12345', {}).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    await Effect.runPromise(program)
+
+    const output = capturedLogs.join('\n')
+
+    expect(output).toContain('📋 Change 12345: Minimal change')
+    expect(output).toContain('Owner: user@example.com') // Should fallback to email
+  })
+})
