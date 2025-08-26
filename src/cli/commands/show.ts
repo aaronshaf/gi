@@ -6,6 +6,7 @@ import { getDiffContext } from '@/utils/diff-context'
 import { formatDiffPretty } from '@/utils/diff-formatters'
 import { sanitizeCDATA, escapeXML } from '@/utils/shell-safety'
 import { formatDate } from '@/utils/formatters'
+import { sortMessagesByDate } from '@/utils/message-filters'
 
 interface ShowOptions {
   xml?: boolean
@@ -93,9 +94,7 @@ const getCommentsAndMessagesForChange = (
     })
 
     // Sort messages by date (newest first)
-    const sortedMessages = [...messages].sort((a, b) => {
-      return new Date(b.date).getTime() - new Date(a.date).getTime()
-    })
+    const sortedMessages = sortMessagesByDate(messages)
 
     return { comments: allComments, messages: sortedMessages }
   })
