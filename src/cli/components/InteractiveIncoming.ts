@@ -3,6 +3,8 @@ import React, { useState } from 'react'
 import { exec } from 'node:child_process'
 import type { ChangeInfo } from '@/schemas/gerrit'
 import { colors } from '@/utils/formatters'
+import { sanitizeUrlSync, getOpenCommand } from '@/utils/shell-safety'
+import { getStatusString, getLabelValue, getLabelColor } from '@/utils/status-indicators'
 
 interface InteractiveIncomingProps {
   changes: readonly ChangeInfo[]
@@ -16,15 +18,21 @@ const openChangeInBrowser = (change: ChangeInfo, gerritHost?: string) => {
     return
   }
 
-  const changeUrl = `${gerritHost}/c/${change.project}/+/${change._number}`
-  const openCmd =
-    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'
+  try {
+    const changeUrl = `${gerritHost}/c/${change.project}/+/${change._number}`
+    const safeUrl = sanitizeUrlSync(changeUrl)
+    const openCmd = getOpenCommand()
 
-  exec(`${openCmd} "${changeUrl}"`, (error) => {
-    if (error) {
-      console.error(`Failed to open URL: ${error.message}`)
-    }
-  })
+    exec(`${openCmd} "${safeUrl}"`, (error) => {
+      if (error) {
+        console.error(`Failed to open URL: ${error.message}`)
+      }
+    })
+  } catch (error) {
+    console.error(
+      `Failed to sanitize URL: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    )
+  }
 }
 
 export const InteractiveIncoming = ({
@@ -161,27 +169,7 @@ function renderListView(
         const isCursor = selectedIndex === index
         const ownerName = change.owner?.name || change.owner?.username || 'Unknown'
 
-        // Build status indicators
-        const indicators: string[] = []
-        if (change.labels?.['Code-Review']) {
-          const cr = change.labels['Code-Review']
-          if (cr.approved || cr.value === 2) indicators.push('✅')
-          else if (cr.rejected || cr.value === -2) indicators.push('❌')
-          else if (cr.recommended || cr.value === 1) indicators.push('👍')
-          else if (cr.disliked || cr.value === -1) indicators.push('👎')
-        }
-
-        if (change.labels?.['Verified']) {
-          const v = change.labels.Verified
-          if (v.approved || v.value === 1) {
-            if (!indicators.includes('✅')) indicators.push('✅')
-          } else if (v.rejected || v.value === -1) {
-            indicators.push('❌')
-          }
-        }
-
-        const statusStr = indicators.length > 0 ? indicators.join(' ') : '        '
-        const paddedStatus = statusStr.padEnd(8, ' ')
+        const paddedStatus = getStatusString(change)
 
         return React.createElement(
           Box,
@@ -253,11 +241,8 @@ function renderDetailView(change: ChangeInfo): React.ReactElement {
       React.createElement(Text, { key: 'spacer3' }, ''),
       React.createElement(Text, { key: 'labels-title', bold: true }, 'Labels:'),
       ...Object.entries(change.labels || {}).map(([label, labelInfo]) => {
-        const labelValue =
-          typeof labelInfo === 'object' && labelInfo !== null && 'value' in labelInfo
-            ? (labelInfo as any).value || 0
-            : 0
-        const labelColor = labelValue > 0 ? 'green' : labelValue < 0 ? 'red' : 'yellow'
+        const labelValue = getLabelValue(labelInfo)
+        const labelColor = getLabelColor(labelValue)
         return React.createElement(
           Text,
           { key: label, color: labelColor },

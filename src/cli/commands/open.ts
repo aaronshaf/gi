@@ -2,6 +2,7 @@ import { Effect } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
 import { type ConfigError, ConfigService } from '@/services/config'
 import { extractChangeNumber, isValidChangeId } from '@/utils/url-parser'
+import { sanitizeUrl, getOpenCommand } from '@/utils/shell-safety'
 import { exec } from 'node:child_process'
 
 interface OpenOptions {
@@ -33,14 +34,16 @@ export const openCommand = (
 
     const changeUrl = `${gerritHost}/c/${change.project}/+/${change._number}`
 
+    // Sanitize URL for shell safety
+    const safeUrl = yield* sanitizeUrl(changeUrl)
+
     // Open the URL in the default browser
-    const openCmd =
-      process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'
+    const openCmd = getOpenCommand()
 
     yield* Effect.promise(
       () =>
         new Promise<void>((resolve, reject) => {
-          exec(`${openCmd} "${changeUrl}"`, (error) => {
+          exec(`${openCmd} "${safeUrl}"`, (error) => {
             if (error) {
               reject(new Error(`Failed to open URL: ${error.message}`))
             } else {
