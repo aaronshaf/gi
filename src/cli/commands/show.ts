@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
-import type { CommentInfo } from '@/schemas/gerrit'
+import type { CommentInfo, MessageInfo } from '@/schemas/gerrit'
 import { formatCommentsPretty } from '@/utils/comment-formatters'
 import { getDiffContext } from '@/utils/diff-context'
 import { formatDiffPretty } from '@/utils/diff-formatters'
@@ -58,16 +58,23 @@ const getDiffForChange = (changeId: string): Effect.Effect<string, ApiError, Ger
     return typeof diff === 'string' ? diff : JSON.stringify(diff, null, 2)
   })
 
-const getCommentsForChange = (
+const getCommentsAndMessagesForChange = (
   changeId: string,
-): Effect.Effect<CommentInfo[], ApiError, GerritApiService> =>
+): Effect.Effect<
+  { comments: CommentInfo[]; messages: MessageInfo[] },
+  ApiError,
+  GerritApiService
+> =>
   Effect.gen(function* () {
     const gerritApi = yield* GerritApiService
 
-    // Get all comments for the change
-    const comments = yield* gerritApi.getComments(changeId)
+    // Get both inline comments and review messages concurrently
+    const [comments, messages] = yield* Effect.all(
+      [gerritApi.getComments(changeId), gerritApi.getMessages(changeId)],
+      { concurrency: 'unbounded' },
+    )
 
-    // Flatten all comments from all files
+    // Flatten all inline comments from all files
     const allComments: CommentInfo[] = []
     for (const [path, fileComments] of Object.entries(comments)) {
       for (const comment of fileComments) {
@@ -78,20 +85,26 @@ const getCommentsForChange = (
       }
     }
 
-    // Sort by path and then by line number
+    // Sort inline comments by path and then by line number
     allComments.sort((a, b) => {
       const pathCompare = (a.path || '').localeCompare(b.path || '')
       if (pathCompare !== 0) return pathCompare
       return (a.line || 0) - (b.line || 0)
     })
 
-    return allComments
+    // Sort messages by date (newest first)
+    const sortedMessages = [...messages].sort((a, b) => {
+      return new Date(b.date).getTime() - new Date(a.date).getTime()
+    })
+
+    return { comments: allComments, messages: sortedMessages }
   })
 
 const formatShowPretty = (
   changeDetails: ChangeDetails,
   diff: string,
   commentsWithContext: Array<{ comment: CommentInfo; context?: any }>,
+  messages: MessageInfo[],
 ): void => {
   // Change details header
   console.log('━'.repeat(80))
@@ -120,15 +133,43 @@ const formatShowPretty = (
   console.log(formatDiffPretty(diff))
   console.log()
 
-  // Comments section
-  if (commentsWithContext.length > 0) {
-    console.log('💬 Comments:')
+  // Comments and Messages section
+  const hasComments = commentsWithContext.length > 0
+  const hasMessages = messages.length > 0
+
+  if (hasComments) {
+    console.log('💬 Inline Comments:')
     console.log('─'.repeat(40))
     formatCommentsPretty(commentsWithContext)
-  } else {
-    console.log('💬 Comments:')
+    console.log()
+  }
+
+  if (hasMessages) {
+    console.log('📝 Review Activity:')
     console.log('─'.repeat(40))
-    console.log('No comments found.')
+    for (const message of messages) {
+      const author = message.author?.name || 'Unknown'
+      const date = formatDate(message.date)
+      const cleanMessage = message.message.trim()
+
+      // Skip very short automated messages
+      if (
+        cleanMessage.length < 10 &&
+        (cleanMessage.includes('Build') || cleanMessage.includes('Patch'))
+      ) {
+        continue
+      }
+
+      console.log(`📅 ${date} - ${author}`)
+      console.log(`   ${cleanMessage}`)
+      console.log()
+    }
+  }
+
+  if (!hasComments && !hasMessages) {
+    console.log('💬 Comments & Activity:')
+    console.log('─'.repeat(40))
+    console.log('No comments or review activity found.')
   }
 }
 
@@ -136,6 +177,7 @@ const formatShowXml = (
   changeDetails: ChangeDetails,
   diff: string,
   commentsWithContext: Array<{ comment: CommentInfo; context?: any }>,
+  messages: MessageInfo[],
 ): void => {
   console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
   console.log(`<show_result>`)
@@ -179,6 +221,30 @@ const formatShowXml = (
     console.log(`    </comment>`)
   }
   console.log(`  </comments>`)
+
+  // Messages section
+  console.log(`  <messages>`)
+  console.log(`    <count>${messages.length}</count>`)
+  for (const message of messages) {
+    console.log(`    <message>`)
+    console.log(`      <id>${escapeXML(message.id)}</id>`)
+    if (message.author?.name) {
+      console.log(`      <author><![CDATA[${sanitizeCDATA(message.author.name)}]]></author>`)
+    }
+    if (message.author?._account_id) {
+      console.log(`      <author_id>${message.author._account_id}</author_id>`)
+    }
+    console.log(`      <date>${escapeXML(message.date)}</date>`)
+    if (message._revision_number) {
+      console.log(`      <revision>${message._revision_number}</revision>`)
+    }
+    if (message.tag) {
+      console.log(`      <tag>${escapeXML(message.tag)}</tag>`)
+    }
+    console.log(`      <message><![CDATA[${sanitizeCDATA(message.message)}]]></message>`)
+    console.log(`    </message>`)
+  }
+  console.log(`  </messages>`)
   console.log(`</show_result>`)
 }
 
@@ -188,10 +254,16 @@ export const showCommand = (
 ): Effect.Effect<void, ApiError | Error, GerritApiService> =>
   Effect.gen(function* () {
     // Fetch all data concurrently
-    const [changeDetails, diff, comments] = yield* Effect.all(
-      [getChangeDetails(changeId), getDiffForChange(changeId), getCommentsForChange(changeId)],
+    const [changeDetails, diff, commentsAndMessages] = yield* Effect.all(
+      [
+        getChangeDetails(changeId),
+        getDiffForChange(changeId),
+        getCommentsAndMessagesForChange(changeId),
+      ],
       { concurrency: 'unbounded' },
     )
+
+    const { comments, messages } = commentsAndMessages
 
     // Get context for each comment using concurrent requests
     const contextEffects = comments.map((comment) =>
@@ -211,9 +283,9 @@ export const showCommand = (
 
     // Format output
     if (options.xml) {
-      formatShowXml(changeDetails, diff, commentsWithContext)
+      formatShowXml(changeDetails, diff, commentsWithContext, messages)
     } else {
-      formatShowPretty(changeDetails, diff, commentsWithContext)
+      formatShowPretty(changeDetails, diff, commentsWithContext, messages)
     }
   }).pipe(
     // Regional error boundary for the entire command

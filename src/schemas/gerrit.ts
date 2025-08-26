@@ -196,6 +196,34 @@ export const CommentInfo: Schema.Schema<{
 })
 export type CommentInfo = Schema.Schema.Type<typeof CommentInfo>
 
+// Message info for review messages
+export const MessageInfo: Schema.Schema<{
+  readonly id: string
+  readonly message: string
+  readonly author?: {
+    readonly _account_id: number
+    readonly name?: string
+    readonly email?: string
+  }
+  readonly date: string
+  readonly _revision_number?: number
+  readonly tag?: string
+}> = Schema.Struct({
+  id: Schema.String,
+  message: Schema.String,
+  author: Schema.optional(
+    Schema.Struct({
+      _account_id: Schema.Number,
+      name: Schema.optional(Schema.String),
+      email: Schema.optional(Schema.String),
+    }),
+  ),
+  date: Schema.String,
+  _revision_number: Schema.optional(Schema.Number),
+  tag: Schema.optional(Schema.String),
+})
+export type MessageInfo = Schema.Schema.Type<typeof MessageInfo>
+
 export const ReviewInput: Schema.Schema<{
   readonly message?: string
   readonly labels?: Record<string, number>
