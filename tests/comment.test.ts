@@ -717,4 +717,117 @@ describe('comment command', () => {
       configurable: true,
     })
   })
+
+  it('should provide detailed error context for batch comment failures', async () => {
+    const originalStdin = process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: mockProcessStdin,
+      configurable: true,
+    })
+
+    server.use(
+      http.get('*/a/changes/:changeId', () => {
+        return HttpResponse.text(`)]}'\n{
+          "id": "test-project~main~I123abc",
+          "_number": 12345,
+          "project": "test-project",
+          "branch": "main",
+          "change_id": "I123abc",
+          "subject": "Test change",
+          "status": "NEW"
+        }`)
+      }),
+      http.post('*/a/changes/:changeId/revisions/current/review', () => {
+        return HttpResponse.text(
+          'file app/models/auto_grade_result.rb not found in revision 386823,6',
+          { status: 400 },
+        )
+      }),
+    )
+
+    const mockConfigLayer = Layer.succeed(
+      ConfigService,
+      ConfigService.of({
+        getCredentials: Effect.succeed({
+          host: 'https://gerrit.example.com',
+          username: 'testuser',
+          password: 'testpass',
+        }),
+        saveCredentials: () => Effect.succeed(undefined),
+        deleteCredentials: Effect.succeed(undefined),
+      }),
+    )
+
+    const program = commentCommand('12345', { batch: true }).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    // Simulate batch input
+    setTimeout(() => {
+      mockProcessStdin.emit(
+        JSON.stringify([
+          { file: 'app/models/auto_grade_result.rb', line: 23, message: 'This needs improvement' },
+          {
+            file: 'src/utils.js',
+            line: 45,
+            message:
+              'This is a very long comment message that should be truncated in the error output to keep it readable',
+          },
+        ]),
+      )
+    }, 10)
+
+    await expect(Effect.runPromise(program)).rejects.toThrow(
+      /Failed to post comment: file app\/models\/auto_grade_result\.rb not found in revision 386823,6\nTried to post: app\/models\/auto_grade_result\.rb:23 "This needs improvement", src\/utils\.js:45 "This is a very long comment message that should be\.\.\."/,
+    )
+
+    // Restore process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: originalStdin,
+      configurable: true,
+    })
+  })
+
+  it('should provide detailed error context for line comment failures', async () => {
+    server.use(
+      http.get('*/a/changes/:changeId', () => {
+        return HttpResponse.text(`)]}'\n{
+          "id": "test-project~main~I123abc",
+          "_number": 12345,
+          "project": "test-project",
+          "branch": "main",
+          "change_id": "I123abc",
+          "subject": "Test change",
+          "status": "NEW"
+        }`)
+      }),
+      http.post('*/a/changes/:changeId/revisions/current/review', () => {
+        return HttpResponse.text('file not found', { status: 400 })
+      }),
+    )
+
+    const mockConfigLayer = Layer.succeed(
+      ConfigService,
+      ConfigService.of({
+        getCredentials: Effect.succeed({
+          host: 'https://gerrit.example.com',
+          username: 'testuser',
+          password: 'testpass',
+        }),
+        saveCredentials: () => Effect.succeed(undefined),
+        deleteCredentials: Effect.succeed(undefined),
+      }),
+    )
+
+    const program = commentCommand('12345', {
+      file: 'missing-file.rb',
+      line: 42,
+      message: 'Test comment on missing file',
+    }).pipe(Effect.provide(GerritApiServiceLive), Effect.provide(mockConfigLayer))
+
+    await expect(Effect.runPromise(program)).rejects.toThrow(
+      'Failed to post comment: file not found\nTried to post to missing-file.rb:42: "Test comment on missing file"',
+    )
+  })
 })

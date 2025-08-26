@@ -203,9 +203,49 @@ export const commentCommand = (
 
     yield* pipe(
       apiService.postReview(changeId, review),
-      Effect.mapError((error) =>
-        error._tag === 'ApiError' ? new Error(`Failed to post comment: ${error.message}`) : error,
-      ),
+      Effect.mapError((error) => {
+        if (error._tag === 'ApiError') {
+          // Build detailed error context for batch comments
+          if (options.batch && review.comments) {
+            const commentDetails = Object.entries(review.comments)
+              .flatMap(([file, comments]) =>
+                comments.map((comment) => {
+                  const parts = [`${file}:${comment.line || 'range'}`]
+                  if (comment.message?.length > 50) {
+                    parts.push(`"${comment.message.slice(0, 50)}..."`)
+                  } else {
+                    parts.push(`"${comment.message}"`)
+                  }
+                  return parts.join(' ')
+                }),
+              )
+              .join(', ')
+
+            return new Error(
+              `Failed to post comment: ${error.message}\nTried to post: ${commentDetails}`,
+            )
+          }
+
+          // Single line comment context
+          if (options.file && options.line) {
+            return new Error(
+              `Failed to post comment: ${error.message}\nTried to post to ${options.file}:${options.line}: "${options.message}"`,
+            )
+          }
+
+          // Overall comment context
+          if (options.message) {
+            const msg =
+              options.message.length > 50 ? `${options.message.slice(0, 50)}...` : options.message
+            return new Error(
+              `Failed to post comment: ${error.message}\nTried to post overall comment: "${msg}"`,
+            )
+          }
+
+          return new Error(`Failed to post comment: ${error.message}`)
+        }
+        return error
+      }),
     )
 
     // Format and display output
