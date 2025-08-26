@@ -434,8 +434,8 @@ describe('comment command - advanced batch features', () => {
           },
           message: 'Test comment',
         })
-        // line should be included even when range is present
-        expect(fileComments?.[0].line).toBe(10)
+        // line should NOT be included when range is present (Gerrit API preference)
+        expect(fileComments?.[0].line).toBeUndefined()
 
         return HttpResponse.json({})
       }),

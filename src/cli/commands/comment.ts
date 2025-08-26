@@ -90,13 +90,20 @@ const buildBatchReview = (batchInput: BatchCommentInput): ReviewInput => {
       acc[filePath] = []
     }
     if (filePath) {
-      acc[filePath].push({
-        line: comment.line,
-        range: comment.range,
+      // When range is present, don't include line (Gerrit API preference)
+      const commentObj: any = {
         message: comment.message,
         side: comment.side,
         unresolved: comment.unresolved,
-      })
+      }
+
+      if (comment.range) {
+        commentObj.range = comment.range
+      } else if (comment.line) {
+        commentObj.line = comment.line
+      }
+
+      acc[filePath].push(commentObj)
     }
     return acc
   }, {})
