@@ -8,12 +8,7 @@ Command-line interface for Gerrit Code Review. XML output by default for LLM/aut
 - **Interactive UI**: Terminal UI for change selection and navigation  
 - **Secure**: Credentials stored in system keychain
 - **Effect-based**: Robust error handling and functional architecture
-- **Advanced Batch Comments**: 
-  - Line-specific and multi-line range comments
-  - PARENT/REVISION side targeting for precise diff comments
-  - Character-level precision for highlighting specific code segments
-  - Unresolved flag for tracking issues that need attention
-  - JSON array input for easy AI tool integration
+- **Batch Comments**: JSON array input with line/range targeting and side support
 
 ## Installation
 
