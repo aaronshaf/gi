@@ -231,7 +231,14 @@ export const ReviewInput: Schema.Schema<{
     string,
     ReadonlyArray<{
       readonly line?: number
+      readonly range?: {
+        readonly start_line: number
+        readonly end_line: number
+        readonly start_character?: number
+        readonly end_character?: number
+      }
       readonly message: string
+      readonly side?: 'PARENT' | 'REVISION'
       readonly unresolved?: boolean
     }>
   >
@@ -244,7 +251,16 @@ export const ReviewInput: Schema.Schema<{
       value: Schema.Array(
         Schema.Struct({
           line: Schema.optional(Schema.Number),
+          range: Schema.optional(
+            Schema.Struct({
+              start_line: Schema.Number,
+              end_line: Schema.Number,
+              start_character: Schema.optional(Schema.Number),
+              end_character: Schema.optional(Schema.Number),
+            }),
+          ),
           message: Schema.String,
+          side: Schema.optional(Schema.Literal('PARENT', 'REVISION')),
           unresolved: Schema.optional(Schema.Boolean),
         }),
       ),

@@ -374,7 +374,7 @@ describe('comment command', () => {
     setTimeout(() => {
       mockProcessStdin.emit(
         JSON.stringify([
-          { file: 'src/main.js', message: 'Missing line number' }, // Invalid: missing line
+          { message: 'Missing file path' }, // Invalid: missing file
         ]),
       )
     }, 10)

@@ -66,24 +66,79 @@ ger workspace --pretty
 ```
 
 ### Comments
-```bash
-# Post overall comment
-ger comment 12345 -m "LGTM"
-ger comment 12345 --pretty
-echo "Review text" | ger comment 12345
 
-# Post line-specific comment
-# Note: Line numbers refer to the post-merge view (right side of diff)
+#### Overall Comments
+```bash
+# Using -m flag
+ger comment 12345 -m "LGTM"
+
+# Piping plain text (becomes overall comment message)
+echo "Review text" | ger comment 12345
+cat review.txt | ger comment 12345
+```
+
+#### Line-Specific Comments
+```bash
+# Single line comment (line numbers refer to post-merge view)
 ger comment 12345 --file src/main.ts --line 42 -m "Consider error handling"
 
-# Batch line-specific comments (JSON array input)
-# Line numbers refer to the final file, not the diff
+# Mark as unresolved
+ger comment 12345 --file src/main.ts --line 42 -m "Fix this" --unresolved
+```
+
+#### Batch Line Comments (JSON Array)
+```bash
+# Basic batch comments
 echo '[
   {"file": "src/main.ts", "line": 10, "message": "Add type annotation"},
-  {"file": "src/utils.ts", "line": 25, "message": "Extract to constant"}
+  {"file": "src/utils.ts", "line": 25, "message": "Extract to constant"},
+  {"file": "src/api.ts", "line": 100, "message": "Handle error", "unresolved": true}
 ]' | ger comment 12345 --batch
 
-# View all comments with context
+# With side parameter (PARENT or REVISION)
+echo '[
+  {"file": "src/Calculator.java", "line": 5, "side": "PARENT", "message": "Why was this removed?"},
+  {"file": "src/Calculator.java", "line": 5, "side": "REVISION", "message": "Good improvement"}
+]' | ger comment 12345 --batch
+
+# With range comments (multi-line or character-specific)
+echo '[
+  {
+    "file": "src/Service.java",
+    "range": {"start_line": 50, "end_line": 55},
+    "message": "This block needs refactoring"
+  },
+  {
+    "file": "src/Service.java",
+    "range": {"start_line": 10, "start_character": 8, "end_line": 10, "end_character": 25},
+    "message": "Variable name is confusing"
+  }
+]' | ger comment 12345 --batch
+
+# Combined: range + side + unresolved
+echo '[
+  {
+    "file": "src/UserService.java",
+    "range": {"start_line": 20, "end_line": 35},
+    "side": "PARENT",
+    "message": "Why was error handling removed?",
+    "unresolved": true
+  },
+  {
+    "file": "src/UserService.java",
+    "range": {"start_line": 20, "end_line": 35},
+    "side": "REVISION",
+    "message": "New error handling looks good, but consider extracting"
+  }
+]' | ger comment 12345 --batch
+
+# From a file
+cat comments.json | ger comment 12345 --batch
+```
+
+#### View Comments
+```bash
+# View all comments with diff context
 ger comments 12345
 ger comments 12345 --pretty
 ```
