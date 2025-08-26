@@ -48,6 +48,13 @@ ger comment 12345 -m "LGTM!"
 
 # Human-readable output
 ger comment 12345 -m "Looks good!" --pretty
+
+# Interactive mode (prompts for comment text)
+ger comment 12345
+
+# Piped input (read comment from stdin)
+echo "LGTM!" | ger comment 12345
+cat review-notes.txt | ger comment 12345 --pretty
 ```
 
 ### Get Diff
@@ -102,8 +109,11 @@ ger workspace --pretty
 # Get diff in XML format for LLM analysis
 ger diff 12345 | llm "Review this code change"
 
-# Post AI-generated review
-llm "Generate review for change 12345" | xargs -I {} ger comment 12345 -m "{}"
+# Generate and post AI review using piped input
+llm "Generate code review for change 12345" | ger comment 12345
+
+# Chain AI analysis and commenting
+ger diff 12345 | llm "Analyze this diff and provide feedback" | ger comment 12345 --pretty
 ```
 
 ### Piping to AI Tools
@@ -111,8 +121,15 @@ llm "Generate review for change 12345" | xargs -I {} ger comment 12345 -m "{}"
 # Get change diff and analyze
 ger diff 12345 | ai-review-tool
 
+# Post pre-written review from file
+cat automated-review.txt | ger comment 12345
+
 # Check status programmatically
 ger status | xmllint --xpath "//connected/text()" -
+
+# Batch process multiple reviews
+echo "LGTM - automated approval" | ger comment 12345
+echo "Ship it!" | ger comment 12346 --pretty
 ```
 
 ## Output Format
