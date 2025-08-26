@@ -10,7 +10,7 @@ interface OpenOptions {
 
 export const openCommand = (
   changeId: string,
-  options: OpenOptions = {},
+  _options: OpenOptions = {},
 ): Effect.Effect<void, ApiError | ConfigError | Error, GerritApiService | ConfigService> =>
   Effect.gen(function* () {
     const gerritApi = yield* GerritApiService
