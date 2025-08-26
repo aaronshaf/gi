@@ -92,29 +92,20 @@ ger comment 12345 --file src/main.ts --line 42 -m "Fix this" --unresolved
 The batch comment feature accepts a JSON array of comment objects. Each comment can target specific lines, ranges, or sides of the diff.
 
 ##### Basic Structure
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `file` | **Yes** | File path to comment on |
-| `line` | No | Line number (omit when using `range`) |
-| `message` | **Yes** | The comment text |
-| `side` | No | `"PARENT"` or `"REVISION"` (default: `"REVISION"`) |
-| `range` | No | Multi-line or character range object |
-| `range.start_line` | Yes* | Start line of range (*if using range) |
-| `range.end_line` | Yes* | End line of range (*if using range) |
-| `range.start_character` | No | Start character position (0-indexed) |
-| `range.end_character` | No | End character position (0-indexed) |
-| `unresolved` | No | Mark as unresolved (default: `false`) |
-
-**Example structure:**
-```json
+```javascript
 [
   {
-    "file": "src/main.js",
-    "line": 42,
-    "message": "Fix this issue",
-    "side": "REVISION",
-    "unresolved": true
+    "file": "path/to/file.js",       // Required: File path
+    "line": 42,                       // Optional: Line number (omit when using range)
+    "message": "Your comment",        // Required: Comment text
+    "side": "REVISION",               // Optional: "PARENT" or "REVISION" (default: REVISION)
+    "range": {                        // Optional: Comment on multiple lines or characters
+      "start_line": 10,
+      "end_line": 20,
+      "start_character": 0,           // Optional: Character position (0-indexed)
+      "end_character": 80
+    },
+    "unresolved": true                // Optional: Mark as unresolved (default: false)
   }
 ]
 ```
