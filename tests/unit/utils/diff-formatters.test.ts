@@ -35,7 +35,7 @@ index 1234567..abcdef0 100644
       expect(emptyResult).toContain('No changes detected')
       expect(emptyResult).toContain('No diff content available')
 
-      const nullResult = formatDiffPretty(null as any)
+      const nullResult = formatDiffPretty(null as unknown as string)
       expect(nullResult).toContain('No changes detected')
       expect(nullResult).toContain('No diff content available')
     })
@@ -80,7 +80,7 @@ index 111222..333444 100644
 
     test('should handle empty files list', () => {
       expect(formatFilesList([])).toBe('No files changed')
-      expect(formatFilesList(null as any)).toBe('No files changed')
+      expect(formatFilesList(null as unknown as string[])).toBe('No files changed')
     })
   })
 
@@ -141,7 +141,11 @@ index abc123..def456 100644
 
     test('should handle empty diff content', () => {
       expect(extractDiffStats('')).toEqual({ files: 0, additions: 0, deletions: 0 })
-      expect(extractDiffStats(null as any)).toEqual({ files: 0, additions: 0, deletions: 0 })
+      expect(extractDiffStats(null as unknown as string)).toEqual({
+        files: 0,
+        additions: 0,
+        deletions: 0,
+      })
     })
 
     test('should count multiple files correctly', () => {
