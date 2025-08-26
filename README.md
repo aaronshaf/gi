@@ -76,11 +76,11 @@ echo "Review text" | ger comment 12345
 # Note: Line numbers refer to the post-merge view (right side of diff)
 ger comment 12345 --file src/main.ts --line 42 -m "Consider error handling"
 
-# Batch line-specific comments (JSON input)
+# Batch line-specific comments (JSON array input)
 # Line numbers refer to the final file, not the diff
 echo '[
-  {"path": "src/main.ts", "line": 10, "message": "Add type annotation"},
-  {"path": "src/utils.ts", "line": 25, "message": "Extract to constant"}
+  {"file": "src/main.ts", "line": 10, "message": "Add type annotation"},
+  {"file": "src/utils.ts", "line": 25, "message": "Extract to constant"}
 ]' | ger comment 12345 --batch
 
 # View all comments with context
@@ -158,7 +158,7 @@ Message: LGTM
 
 ### Testing
 ```bash
-bun test          # Run tests with 87.9% coverage
+bun test          # Run tests with 87.6% coverage
 bun run typecheck # Type checking
 bun run lint      # Linting with oxlint and biome
 ```
