@@ -1,13 +1,13 @@
 # Gerrit CLI (ger)
 
-An LLM-centric command-line interface for Gerrit Code Review. Outputs XML by default for easy parsing by AI tools, with optional human-readable output via `--pretty` flag.
+Command-line interface for Gerrit Code Review. XML output by default for LLM/automation compatibility, human-readable output with `--pretty`.
 
 ## Features
 
-- **LLM-First Design**: XML output by default for AI/LLM consumption
-- **Simple & Direct**: No caching, always fresh data from Gerrit
-- **Secure**: Credentials stored in system keychain via keytar
-- **Effect-based**: Built with Effect for robust error handling
+- **LLM-Friendly**: XML output for AI/automation pipelines
+- **Interactive UI**: Terminal UI for change selection and navigation
+- **Secure**: Credentials stored in system keychain
+- **Effect-based**: Robust error handling and functional architecture
 
 ## Installation
 
@@ -32,143 +32,124 @@ ger init
 
 ## Commands
 
-### Check Connection
+### Initialize
 ```bash
-# XML output (default)
-ger status
+ger init
+```
 
-# Human-readable output
+### Connection Status
+```bash
+ger status
 ger status --pretty
 ```
 
-### Post Comment
+### Show Change Details
 ```bash
-# XML output (default)
-ger comment 12345 -m "LGTM!"
-
-# Human-readable output
-ger comment 12345 -m "Looks good!" --pretty
-
-# Interactive mode (prompts for comment text)
-ger comment 12345
-
-# Piped input (read comment from stdin)
-echo "LGTM!" | ger comment 12345
-cat review-notes.txt | ger comment 12345 --pretty
+# Complete change info with metadata, diff, inline comments, and review activity
+ger show 12345
+ger show 12345 --pretty
 ```
 
-### Get Diff
+### List Changes
 ```bash
-# XML output (default)
-ger diff 12345
+# Your changes
+ger mine
+ger mine --pretty
 
-# Human-readable output
+# Incoming reviews
+ger incoming
+ger incoming --pretty
+
+# Workspace changes (local branch tracking)
+ger workspace
+ger workspace --pretty
+```
+
+### Comments
+```bash
+# Post comment
+ger comment 12345 -m "LGTM"
+ger comment 12345 --pretty
+echo "Review text" | ger comment 12345
+
+# View all comments with context
+ger comments 12345
+ger comments 12345 --pretty
+```
+
+### Diff
+```bash
+# Full diff
+ger diff 12345
 ger diff 12345 --pretty
 
-# List changed files only
+# List changed files
 ger diff 12345 --files-only
 
 # Specific file
 ger diff 12345 --file src/main.ts
 ```
 
-### List My Changes
+### Change Management
 ```bash
-# XML output (default)
-ger mine
+# Open in browser
+ger open 12345
 
-# Human-readable output
-ger mine --pretty
-```
-
-### Abandon Change
-```bash
-# XML output (default)
+# Abandon
 ger abandon 12345
-
-# Human-readable output
-ger abandon 12345 --pretty
-
-# With reason
-ger abandon 12345 -m "Superseded by change 12346"
+ger abandon 12345 -m "Reason"
 ```
 
-### Workspace Operations
+## LLM Integration
+
 ```bash
-# List workspace changes (XML output)
-ger workspace
+# Review with AI
+ger diff 12345 | llm "Review this code"
 
-# Human-readable output
-ger workspace --pretty
+# AI-generated comment
+llm "Review change 12345" | ger comment 12345
+
+# Complete change analysis
+ger show 12345 | llm "Summarize this change and its review status"
+
+# Automated approvals
+echo "LGTM" | ger comment 12345
 ```
 
-## LLM Integration Examples
+## Output Formats
 
-### With Claude/ChatGPT
-```bash
-# Get diff in XML format for LLM analysis
-ger diff 12345 | llm "Review this code change"
-
-# Generate and post AI review using piped input
-llm "Generate code review for change 12345" | ger comment 12345
-
-# Chain AI analysis and commenting
-ger diff 12345 | llm "Analyze this diff and provide feedback" | ger comment 12345 --pretty
-```
-
-### Piping to AI Tools
-```bash
-# Get change diff and analyze
-ger diff 12345 | ai-review-tool
-
-# Post pre-written review from file
-cat automated-review.txt | ger comment 12345
-
-# Check status programmatically
-ger status | xmllint --xpath "//connected/text()" -
-
-# Batch process multiple reviews
-echo "LGTM - automated approval" | ger comment 12345
-echo "Ship it!" | ger comment 12346 --pretty
-```
-
-## Output Format
-
-All commands output XML by default:
-
+### XML (Default)
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <comment_result>
   <status>success</status>
   <change_id>12345</change_id>
-  <change_number>12345</change_number>
-  <change_subject><![CDATA[Fix authentication bug]]></change_subject>
-  <change_status>NEW</change_status>
-  <message><![CDATA[LGTM!]]></message>
+  <message><![CDATA[LGTM]]></message>
 </comment_result>
 ```
 
-Use `--pretty` flag for human-readable output:
+### Pretty (--pretty flag)
 ```
-✓ Comment posted successfully!
+Comment posted successfully
 Change: Fix authentication bug (NEW)
-Message: LGTM!
+Message: LGTM
 ```
 
 ## Development
 
-Built with:
+### Stack
 - **Bun** - Runtime and package manager
-- **Effect** - Type-safe error handling
+- **Effect** - Type-safe error handling and functional architecture
 - **TypeScript** - With isolatedDeclarations
+- **Ink** - Terminal UI components
 - **Commander** - CLI argument parsing
 - **Keytar** - Secure credential storage
 
 ### Testing
 ```bash
-bun test
-bun run typecheck
-bun run lint
+bun test          # Run tests with 87.9% coverage
+bun run typecheck # Type checking
+bun run lint      # Linting with oxlint and biome
 ```
 
 ## License
