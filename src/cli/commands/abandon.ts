@@ -70,6 +70,13 @@ export const abandonCommand = (
     const gerritApi = yield* GerritApiService
 
     if (!changeId) {
+      // Check if we're in a TTY environment (required for interactive mode)
+      if (!process.stdin.isTTY) {
+        console.error('✗ Change ID is required when running in non-TTY environment')
+        console.error('  Usage: ger abandon <change-id>')
+        return
+      }
+
       // Interactive mode when no change ID provided
       const changes = yield* gerritApi.listChanges('owner:self status:open')
 
