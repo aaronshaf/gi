@@ -203,6 +203,7 @@ program
   .command('incoming')
   .description('Show incoming changes for review (where you are a reviewer)')
   .option('--xml', 'XML output for LLM consumption')
+  .option('-i, --interactive', 'Interactive mode with detailed view and diff')
   .action(async (options) => {
     try {
       const effect = incomingCommand(options).pipe(

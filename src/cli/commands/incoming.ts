@@ -1,14 +1,19 @@
+import React from 'react'
 import { Effect } from 'effect'
+import { render } from 'ink'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
+import { type ConfigError, ConfigService } from '@/services/config'
 import { colors } from '@/utils/formatters'
+import { InteractiveIncoming } from '@/cli/components/InteractiveIncoming'
 
 interface IncomingOptions {
   xml?: boolean
+  interactive?: boolean
 }
 
 export const incomingCommand = (
   options: IncomingOptions,
-): Effect.Effect<void, ApiError, GerritApiService> =>
+): Effect.Effect<void, ApiError | ConfigError, GerritApiService | ConfigService> =>
   Effect.gen(function* () {
     const gerritApi = yield* GerritApiService
 
@@ -16,6 +21,21 @@ export const incomingCommand = (
     const changes = yield* gerritApi.listChanges(
       'is:open -owner:self -is:wip -is:ignored reviewer:self',
     )
+
+    if (options.interactive) {
+      // Get Gerrit host for opening changes in browser
+      const configService = yield* ConfigService
+      const credentials = yield* configService.getCredentials
+
+      const { waitUntilExit } = render(
+        React.createElement(InteractiveIncoming, {
+          changes,
+          gerritHost: credentials.host,
+        }),
+      )
+      yield* Effect.promise(() => waitUntilExit())
+      return
+    }
 
     if (options.xml) {
       console.log(`<?xml version="1.0" encoding="UTF-8"?>`)

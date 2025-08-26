@@ -30,6 +30,8 @@
     "commander": "^14.0.0",
     "effect": "^3.17.8",
     "ink": "^6.2.2",
+    "ink-box": "^2.0.0",
+    "ink-select-input": "^6.2.0",
     "react": "^19.1.1"
   },
   "scripts": {
