@@ -108,19 +108,23 @@ export const incomingCommand = (
           const indicators: string[] = []
           if (change.labels?.['Code-Review']) {
             const cr = change.labels['Code-Review']
-            if (cr.approved || cr.value === 2) indicators.push('✓ ')
-            else if (cr.rejected || cr.value === -2) indicators.push('✗ ')
-            else if (cr.recommended || cr.value === 1) indicators.push('↑ ')
-            else if (cr.disliked || cr.value === -1) indicators.push('↓ ')
+            if (cr.approved || cr.value === 2) indicators.push(`${colors.green}✓ ${colors.reset}`)
+            else if (cr.rejected || cr.value === -2)
+              indicators.push(`${colors.red}✗ ${colors.reset}`)
+            else if (cr.recommended || cr.value === 1)
+              indicators.push(`${colors.cyan}↑ ${colors.reset}`)
+            else if (cr.disliked || cr.value === -1)
+              indicators.push(`${colors.yellow}↓ ${colors.reset}`)
           }
 
           // Check for Verified label as well
           if (change.labels?.['Verified']) {
             const v = change.labels.Verified
             if (v.approved || v.value === 1) {
-              if (!indicators.includes('✓ ')) indicators.push('✓ ')
+              if (!indicators.some((i) => i.includes('✓')))
+                indicators.push(`${colors.green}✓ ${colors.reset}`)
             } else if (v.rejected || v.value === -1) {
-              indicators.push('✗ ')
+              indicators.push(`${colors.red}✗ ${colors.reset}`)
             }
           }
 

@@ -1,4 +1,4 @@
-import { Schema } from '@effect/schema'
+import { Schema, ParseResult, TreeFormatter } from '@effect/schema'
 import { Effect, pipe } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
 import type { ChangeInfo, ReviewInput } from '@/schemas/gerrit'
@@ -119,12 +119,23 @@ const createReviewInput = (options: CommentOptions): Effect.Effect<ReviewInput, 
           onExcessProperty: 'ignore',
         }),
       ),
-      Effect.mapError(
-        () =>
-          new Error(
-            'Invalid batch input format. Expected: [{"file": "...", "line": ..., "message": "...", "side"?: "PARENT|REVISION", "range"?: {...}}]',
-          ),
-      ),
+      Effect.mapError((error) => {
+        // Extract the actual schema validation errors
+        let errorMessage = 'Invalid batch input format.\n'
+
+        if (ParseResult.isParseError(error)) {
+          // Format the parse error with details
+          errorMessage += TreeFormatter.formatErrorSync(error)
+          errorMessage += '\n\nExpected format: [{"file": "...", "line": ..., "message": "..."}]'
+        } else if (error instanceof Error) {
+          errorMessage += error.message
+        } else {
+          errorMessage +=
+            'Expected: [{"file": "...", "line": ..., "message": "...", "side"?: "PARENT|REVISION", "range"?: {...}}]'
+        }
+
+        return new Error(errorMessage)
+      }),
       Effect.map(buildBatchReview),
     )
   }
