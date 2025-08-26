@@ -381,6 +381,25 @@ export const DiffOptions: Schema.Schema<{
 })
 export type DiffOptions = Schema.Schema.Type<typeof DiffOptions>
 
+// Command options schemas
+export const DiffCommandOptions: Schema.Schema<{
+  readonly xml?: boolean
+  readonly file?: string
+  readonly filesOnly?: boolean
+  readonly format?: 'unified' | 'json' | 'files'
+}> = Schema.Struct({
+  xml: Schema.optional(Schema.Boolean),
+  file: Schema.optional(
+    Schema.String.pipe(
+      Schema.minLength(1),
+      Schema.annotations({ description: 'File path for diff (relative to repo root)' }),
+    ),
+  ),
+  filesOnly: Schema.optional(Schema.Boolean),
+  format: Schema.optional(DiffFormat),
+})
+export type DiffCommandOptions = Schema.Schema.Type<typeof DiffCommandOptions>
+
 // API Response schemas
 export const GerritError: Schema.Schema<{
   readonly message: string

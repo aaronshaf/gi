@@ -77,3 +77,41 @@ export const getOpenCommand = (): string => {
       return 'xdg-open'
   }
 }
+
+/**
+ * Safely sanitizes content for inclusion in XML CDATA sections
+ * Prevents XXE attacks and CDATA injection
+ */
+export const sanitizeCDATA = (content: string): string => {
+  if (typeof content !== 'string') {
+    throw new Error('Content must be a string')
+  }
+
+  // Replace CDATA end sequences to prevent CDATA injection
+  let sanitized = content.replace(/]]>/g, ']]&gt;')
+
+  // Replace null bytes which can cause issues in XML processing
+  sanitized = sanitized.replace(/\0/g, '')
+
+  // Replace control characters except for allowed ones (tab \x09, newline \x0A, carriage return \x0D)
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+
+  return sanitized
+}
+
+/**
+ * Safely escapes content for XML element values
+ * Escapes XML special characters
+ */
+export const escapeXML = (content: string): string => {
+  if (typeof content !== 'string') {
+    throw new Error('Content must be a string')
+  }
+
+  return content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}

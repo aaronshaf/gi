@@ -1,25 +1,30 @@
-import { Effect } from 'effect'
+import { Schema } from '@effect/schema'
+import { Effect, pipe } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
-import type { DiffOptions } from '@/schemas/gerrit'
+import type { DiffOptions, DiffCommandOptions } from '@/schemas/gerrit'
+import { DiffCommandOptions as DiffCommandOptionsSchema } from '@/schemas/gerrit'
 import { formatDiffPretty, formatFilesList } from '@/utils/diff-formatters'
-
-interface DiffCommandOptions {
-  xml?: boolean
-  file?: string
-  filesOnly?: boolean
-  format?: 'unified' | 'json' | 'files'
-}
+import { sanitizeCDATA, escapeXML } from '@/utils/shell-safety'
 
 export const diffCommand = (
   changeId: string,
   options: DiffCommandOptions,
 ): Effect.Effect<void, ApiError | Error, GerritApiService> =>
   Effect.gen(function* () {
+    // Validate input options using Effect Schema
+    const validatedOptions = yield* pipe(
+      options,
+      Schema.decodeUnknown(DiffCommandOptionsSchema, {
+        errors: 'all',
+        onExcessProperty: 'ignore',
+      }),
+      Effect.mapError(() => new Error('Invalid diff command options')),
+    )
     const apiService = yield* GerritApiService
 
     const diffOptions: DiffOptions = {
-      format: options.filesOnly ? 'files' : options.format || 'unified',
-      file: options.file,
+      format: validatedOptions.filesOnly ? 'files' : validatedOptions.format || 'unified',
+      file: validatedOptions.file,
     }
 
     const diff = yield* apiService
@@ -30,23 +35,25 @@ export const diffCommand = (
         ),
       )
 
-    if (options.xml) {
+    if (validatedOptions.xml) {
       // XML output for LLM consumption
       console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
       console.log(`<diff_result>`)
       console.log(`  <status>success</status>`)
-      console.log(`  <change_id>${changeId}</change_id>`)
+      console.log(`  <change_id>${escapeXML(changeId)}</change_id>`)
 
       if (Array.isArray(diff)) {
         console.log(`  <files>`)
         diff.forEach((file) => {
-          console.log(`    <file>${file}</file>`)
+          console.log(`    <file>${escapeXML(file)}</file>`)
         })
         console.log(`  </files>`)
       } else if (typeof diff === 'string') {
-        console.log(`  <content><![CDATA[${diff}]]></content>`)
+        console.log(`  <content><![CDATA[${sanitizeCDATA(diff)}]]></content>`)
       } else {
-        console.log(`  <content><![CDATA[${JSON.stringify(diff, null, 2)}]]></content>`)
+        console.log(
+          `  <content><![CDATA[${sanitizeCDATA(JSON.stringify(diff, null, 2))}]]></content>`,
+        )
       }
 
       console.log(`</diff_result>`)

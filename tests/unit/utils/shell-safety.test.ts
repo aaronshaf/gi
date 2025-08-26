@@ -1,6 +1,12 @@
 import { test, expect, describe } from 'bun:test'
 import { Effect } from 'effect'
-import { sanitizeUrl, sanitizeUrlSync, getOpenCommand } from '@/utils/shell-safety'
+import {
+  sanitizeUrl,
+  sanitizeUrlSync,
+  getOpenCommand,
+  sanitizeCDATA,
+  escapeXML,
+} from '@/utils/shell-safety'
 
 describe('Shell Safety Utilities', () => {
   describe('sanitizeUrl (Effect-based)', () => {
@@ -143,6 +149,82 @@ describe('Shell Safety Utilities', () => {
       // Note: new URL('https:///path') actually creates a valid URL object with hostname 'c'
       // So let's test with a truly malformed URL
       expect(() => sanitizeUrlSync('https:///')).toThrow('Invalid URL format')
+    })
+  })
+
+  describe('sanitizeCDATA', () => {
+    test('should handle normal text content', () => {
+      const input = 'This is normal text content\nwith multiple lines'
+      expect(sanitizeCDATA(input)).toBe(input)
+    })
+
+    test('should escape CDATA end sequences', () => {
+      const input = 'Some content with ]]> dangerous sequence'
+      const expected = 'Some content with ]]&gt; dangerous sequence'
+      expect(sanitizeCDATA(input)).toBe(expected)
+    })
+
+    test('should remove null bytes', () => {
+      const input = 'Content with\x00null bytes'
+      const expected = 'Content withnull bytes'
+      expect(sanitizeCDATA(input)).toBe(expected)
+    })
+
+    test('should remove control characters but keep allowed ones', () => {
+      const input = 'Content\twith\ntab\rand\x08backspace\x1fcontrol'
+      const expected = 'Content\twith\ntab\randbackspacecontrol'
+      expect(sanitizeCDATA(input)).toBe(expected)
+    })
+
+    test('should handle empty string', () => {
+      expect(sanitizeCDATA('')).toBe('')
+    })
+
+    test('should throw error for non-string input', () => {
+      expect(() => sanitizeCDATA(123 as never)).toThrow('Content must be a string')
+      expect(() => sanitizeCDATA(null as never)).toThrow('Content must be a string')
+      expect(() => sanitizeCDATA(undefined as never)).toThrow('Content must be a string')
+    })
+
+    test('should handle complex CDATA injection attempts', () => {
+      const input = 'Normal content]]><script>alert("xss")</script><![CDATA[more content'
+      const expected = 'Normal content]]&gt;<script>alert("xss")</script><![CDATA[more content'
+      expect(sanitizeCDATA(input)).toBe(expected)
+    })
+  })
+
+  describe('escapeXML', () => {
+    test('should escape all XML special characters', () => {
+      const input = 'Text with & < > " \' characters'
+      const expected = 'Text with &amp; &lt; &gt; &quot; &apos; characters'
+      expect(escapeXML(input)).toBe(expected)
+    })
+
+    test('should handle normal text without special characters', () => {
+      const input = 'Normal text content'
+      expect(escapeXML(input)).toBe(input)
+    })
+
+    test('should handle empty string', () => {
+      expect(escapeXML('')).toBe('')
+    })
+
+    test('should throw error for non-string input', () => {
+      expect(() => escapeXML(123 as never)).toThrow('Content must be a string')
+      expect(() => escapeXML(null as never)).toThrow('Content must be a string')
+      expect(() => escapeXML(undefined as never)).toThrow('Content must be a string')
+    })
+
+    test('should handle complex XML injection attempts', () => {
+      const input = '<script src="evil.js"></script>&malicious;'
+      const expected = '&lt;script src=&quot;evil.js&quot;&gt;&lt;/script&gt;&amp;malicious;'
+      expect(escapeXML(input)).toBe(expected)
+    })
+
+    test('should handle ampersand properly', () => {
+      const input = 'AT&T & Johnson & Johnson'
+      const expected = 'AT&amp;T &amp; Johnson &amp; Johnson'
+      expect(escapeXML(input)).toBe(expected)
     })
   })
 })
