@@ -11,6 +11,7 @@ import { diffCommand } from './commands/diff'
 import { incomingCommand } from './commands/incoming'
 import { initCommand } from './commands/init'
 import { mineCommand } from './commands/mine'
+import { openCommand } from './commands/open'
 import { statusCommand } from './commands/status'
 import { workspaceCommand } from './commands/workspace'
 
@@ -202,6 +203,7 @@ program
   .command('incoming')
   .description('Show incoming changes for review (where you are a reviewer)')
   .option('--xml', 'XML output for LLM consumption')
+  .option('-i, --interactive', 'Interactive mode with detailed view and diff')
   .action(async (options) => {
     try {
       const effect = incomingCommand(options).pipe(
@@ -278,6 +280,23 @@ program
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       }
+      process.exit(1)
+    }
+  })
+
+// open command
+program
+  .command('open <change-id>')
+  .description('Open a change in the browser')
+  .action(async (changeId, options) => {
+    try {
+      const effect = openCommand(changeId, options).pipe(
+        Effect.provide(GerritApiServiceLive),
+        Effect.provide(ConfigServiceLive),
+      )
+      await Effect.runPromise(effect)
+    } catch (error) {
+      console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       process.exit(1)
     }
   })
