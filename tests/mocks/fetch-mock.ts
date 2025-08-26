@@ -37,8 +37,8 @@ const mockAccount = generateMockAccount()
 //   requirements: [],
 // }
 
-export const setupFetchMock: () => void = () => {
-  ;(global as { fetch: unknown }).fetch = mock(async (url: string | URL, options?: RequestInit) => {
+export const setupFetchMock = () => {
+  return mock(async (url: string | URL, options?: RequestInit) => {
     const urlStr = url.toString()
     const method = options?.method || 'GET'
 

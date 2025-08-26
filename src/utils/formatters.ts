@@ -30,40 +30,41 @@ export const formatDate = (dateStr: string): string => {
 }
 
 export const getStatusIndicator = (change: ChangeInfo): string => {
-  if (!change.labels) return ''
-
   const indicators: string[] = []
 
-  // Check for Code-Review
-  if (change.labels['Code-Review']) {
-    const cr = change.labels['Code-Review']
-    if (cr.approved || cr.value === 2) {
-      indicators.push(`${colors.green}✅${colors.reset}`)
-    } else if (cr.rejected || cr.value === -2) {
-      indicators.push(`${colors.red}❌${colors.reset}`)
-    } else if (cr.recommended || cr.value === 1) {
-      indicators.push('👍')
-    } else if (cr.disliked || cr.value === -1) {
-      indicators.push('👎')
+  // Check for labels only if they exist
+  if (change.labels) {
+    // Check for Code-Review
+    if (change.labels['Code-Review']) {
+      const cr = change.labels['Code-Review']
+      if (cr.approved || cr.value === 2) {
+        indicators.push(`${colors.green}✅${colors.reset}`)
+      } else if (cr.rejected || cr.value === -2) {
+        indicators.push(`${colors.red}❌${colors.reset}`)
+      } else if (cr.recommended || cr.value === 1) {
+        indicators.push('👍')
+      } else if (cr.disliked || cr.value === -1) {
+        indicators.push('👎')
+      }
+    }
+
+    // Check for Verified
+    if (change.labels.Verified) {
+      const v = change.labels.Verified
+      if (v.approved || v.value === 1) {
+        indicators.push(`${colors.green}✓${colors.reset}`)
+      } else if (v.rejected || v.value === -1) {
+        indicators.push(`${colors.red}✗${colors.reset}`)
+      }
     }
   }
 
-  // Check for Verified
-  if (change.labels.Verified) {
-    const v = change.labels.Verified
-    if (v.approved || v.value === 1) {
-      indicators.push(`${colors.green}✓${colors.reset}`)
-    } else if (v.rejected || v.value === -1) {
-      indicators.push(`${colors.red}✗${colors.reset}`)
-    }
-  }
-
-  // Check if submittable
+  // Check if submittable (regardless of labels)
   if (change.submittable) {
     indicators.push('🚀')
   }
 
-  // Check if WIP
+  // Check if WIP (regardless of labels)
   if (change.work_in_progress) {
     indicators.push('🚧')
   }
