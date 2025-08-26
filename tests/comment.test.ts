@@ -204,7 +204,8 @@ describe('comment command', () => {
           message?: string
           comments?: Record<string, unknown[]>
         }
-        expect(body.message).toBe('Overall review')
+        // Array format doesn't include overall message
+        expect(body.message).toBeUndefined()
         expect(body.comments).toBeDefined()
         expect(body.comments?.['src/main.js']?.length).toBe(2)
         expect(body.comments?.['src/utils.js']?.length).toBe(1)
@@ -230,17 +231,14 @@ describe('comment command', () => {
       Effect.provide(mockConfigLayer),
     )
 
-    // Simulate stdin data
+    // Simulate stdin data (array format)
     setTimeout(() => {
       mockProcessStdin.emit(
-        JSON.stringify({
-          message: 'Overall review',
-          comments: [
-            { file: 'src/main.js', line: 10, message: 'First comment' },
-            { file: 'src/main.js', line: 20, message: 'Second comment', unresolved: true },
-            { file: 'src/utils.js', line: 5, message: 'Utils comment' },
-          ],
-        }),
+        JSON.stringify([
+          { file: 'src/main.js', line: 10, message: 'First comment' },
+          { file: 'src/main.js', line: 20, message: 'Second comment', unresolved: true },
+          { file: 'src/utils.js', line: 5, message: 'Utils comment' },
+        ]),
       )
     }, 10)
 
@@ -372,14 +370,12 @@ describe('comment command', () => {
       Effect.provide(mockConfigLayer),
     )
 
-    // Simulate invalid schema
+    // Simulate invalid schema (array format)
     setTimeout(() => {
       mockProcessStdin.emit(
-        JSON.stringify({
-          comments: [
-            { file: 'src/main.js' }, // Missing required fields
-          ],
-        }),
+        JSON.stringify([
+          { file: 'src/main.js', message: 'Missing line number' }, // Invalid: missing line
+        ]),
       )
     }, 10)
 
@@ -569,16 +565,13 @@ describe('comment command', () => {
       Effect.provide(mockConfigLayer),
     )
 
-    // Simulate stdin data
+    // Simulate stdin data (array format)
     setTimeout(() => {
       mockProcessStdin.emit(
-        JSON.stringify({
-          message: 'Overall review',
-          comments: [
-            { file: 'src/main.js', line: 10, message: 'First comment' },
-            { file: 'src/main.js', line: 20, message: 'Second comment', unresolved: true },
-          ],
-        }),
+        JSON.stringify([
+          { file: 'src/main.js', line: 10, message: 'First comment' },
+          { file: 'src/main.js', line: 20, message: 'Second comment', unresolved: true },
+        ]),
       )
     }, 10)
 

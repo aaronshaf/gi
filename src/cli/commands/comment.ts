@@ -12,18 +12,16 @@ interface CommentOptions {
   batch?: boolean
 }
 
-// Schema for batch input validation
-const BatchCommentSchema = Schema.Struct({
-  message: Schema.optional(Schema.String),
-  comments: Schema.Array(
-    Schema.Struct({
-      file: Schema.String,
-      line: Schema.Number,
-      message: Schema.String,
-      unresolved: Schema.optional(Schema.Boolean),
-    }),
-  ),
-})
+// Schema for batch input validation - array of comments
+const BatchCommentSchema = Schema.Array(
+  Schema.Struct({
+    file: Schema.String,
+    line: Schema.Number,
+    message: Schema.String,
+    path: Schema.optional(Schema.String), // Support both 'file' and 'path' for flexibility
+    unresolved: Schema.optional(Schema.Boolean),
+  }),
+)
 
 type BatchCommentInput = Schema.Schema.Type<typeof BatchCommentSchema>
 
@@ -60,22 +58,25 @@ const parseJson = (data: string): Effect.Effect<unknown, Error> =>
 
 // Helper to build ReviewInput from batch data
 const buildBatchReview = (batchInput: BatchCommentInput): ReviewInput => {
-  const commentsByFile = batchInput.comments.reduce<
+  const commentsByFile = batchInput.reduce<
     Record<string, Array<{ line?: number; message: string; unresolved?: boolean }>>
   >((acc, comment) => {
-    if (!acc[comment.file]) {
-      acc[comment.file] = []
+    // Support both 'file' and 'path' properties
+    const filePath = comment.file || comment.path || ''
+    if (filePath && !acc[filePath]) {
+      acc[filePath] = []
     }
-    acc[comment.file].push({
-      line: comment.line,
-      message: comment.message,
-      unresolved: comment.unresolved,
-    })
+    if (filePath) {
+      acc[filePath].push({
+        line: comment.line,
+        message: comment.message,
+        unresolved: comment.unresolved,
+      })
+    }
     return acc
   }, {})
 
   return {
-    message: batchInput.message,
     comments: commentsByFile,
   }
 }
@@ -96,7 +97,7 @@ const createReviewInput = (options: CommentOptions): Effect.Effect<ReviewInput, 
       Effect.mapError(
         () =>
           new Error(
-            'Invalid batch input format. Expected: {"message": "...", "comments": [{"file": "...", "line": ..., "message": "..."}]}',
+            'Invalid batch input format. Expected: [{"file": "...", "line": ..., "message": "..."}]',
           ),
       ),
       Effect.map(buildBatchReview),
