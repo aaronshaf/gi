@@ -67,10 +67,19 @@ ger workspace --pretty
 
 ### Comments
 ```bash
-# Post comment
+# Post overall comment
 ger comment 12345 -m "LGTM"
 ger comment 12345 --pretty
 echo "Review text" | ger comment 12345
+
+# Post line-specific comment
+ger comment 12345 --file src/main.ts --line 42 -m "Consider error handling"
+
+# Batch line-specific comments (JSON input)
+echo '[
+  {"path": "src/main.ts", "line": 10, "message": "Add type annotation"},
+  {"path": "src/utils.ts", "line": 25, "message": "Extract to constant"}
+]' | ger comment 12345 --batch
 
 # View all comments with context
 ger comments 12345
