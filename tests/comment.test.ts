@@ -417,7 +417,13 @@ describe('comment command', () => {
     )
   })
 
-  it('should require message for overall comments', async () => {
+  it('should require message for overall comments when stdin is empty', async () => {
+    const originalStdin = process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: mockProcessStdin,
+      configurable: true,
+    })
+
     const mockConfigLayer = Layer.succeed(
       ConfigService,
       ConfigService.of({
@@ -436,9 +442,20 @@ describe('comment command', () => {
       Effect.provide(mockConfigLayer),
     )
 
+    // Simulate empty stdin
+    setTimeout(() => {
+      mockProcessStdin.emit('')
+    }, 10)
+
     await expect(Effect.runPromise(program)).rejects.toThrow(
-      'Message is required. Use -m "your message"',
+      'Message is required. Use -m "your message" or pipe content to stdin',
     )
+
+    // Restore process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: originalStdin,
+      configurable: true,
+    })
   })
 
   it('should handle API errors gracefully', async () => {
@@ -575,6 +592,131 @@ describe('comment command', () => {
     expect(output).toContain('<line>20</line>')
     expect(output).toContain('<unresolved>true</unresolved>')
     expect(output).toContain('</comments>')
+
+    // Restore process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: originalStdin,
+      configurable: true,
+    })
+  })
+
+  it('should accept piped input for overall comments', async () => {
+    const originalStdin = process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: mockProcessStdin,
+      configurable: true,
+    })
+
+    server.use(
+      http.get('*/a/changes/:changeId', () => {
+        return HttpResponse.text(`)]}'\n{
+          "id": "test-project~main~I123abc",
+          "_number": 12345,
+          "project": "test-project",
+          "branch": "main",
+          "change_id": "I123abc",
+          "subject": "Test change",
+          "status": "NEW",
+          "created": "2024-01-15 10:00:00.000000000",
+          "updated": "2024-01-15 10:00:00.000000000"
+        }`)
+      }),
+      http.post('*/a/changes/:changeId/revisions/current/review', async ({ request }) => {
+        const body = (await request.json()) as { message?: string }
+        expect(body.message).toBe('Piped comment message')
+        return HttpResponse.json({})
+      }),
+    )
+
+    const mockConfigLayer = Layer.succeed(
+      ConfigService,
+      ConfigService.of({
+        getCredentials: Effect.succeed({
+          host: 'https://gerrit.example.com',
+          username: 'testuser',
+          password: 'testpass',
+        }),
+        saveCredentials: () => Effect.succeed(undefined),
+        deleteCredentials: Effect.succeed(undefined),
+      }),
+    )
+
+    // Test comment without message option (should read from stdin)
+    const program = commentCommand('12345', {}).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    // Simulate piped input
+    setTimeout(() => {
+      mockProcessStdin.emit('Piped comment message')
+    }, 10)
+
+    await Effect.runPromise(program)
+
+    const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
+    expect(output).toContain('✓ Comment posted successfully!')
+    expect(output).toContain('Message: Piped comment message')
+
+    // Restore process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: originalStdin,
+      configurable: true,
+    })
+  })
+
+  it('should trim whitespace from piped input', async () => {
+    const originalStdin = process.stdin
+    Object.defineProperty(process, 'stdin', {
+      value: mockProcessStdin,
+      configurable: true,
+    })
+
+    server.use(
+      http.get('*/a/changes/:changeId', () => {
+        return HttpResponse.text(`)]}'\n{
+          "id": "test-project~main~I123abc",
+          "_number": 12345,
+          "project": "test-project",
+          "branch": "main",
+          "change_id": "I123abc",
+          "subject": "Test change",
+          "status": "NEW",
+          "created": "2024-01-15 10:00:00.000000000",
+          "updated": "2024-01-15 10:00:00.000000000"
+        }`)
+      }),
+      http.post('*/a/changes/:changeId/revisions/current/review', async ({ request }) => {
+        const body = (await request.json()) as { message?: string }
+        expect(body.message).toBe('Trimmed message')
+        return HttpResponse.json({})
+      }),
+    )
+
+    const mockConfigLayer = Layer.succeed(
+      ConfigService,
+      ConfigService.of({
+        getCredentials: Effect.succeed({
+          host: 'https://gerrit.example.com',
+          username: 'testuser',
+          password: 'testpass',
+        }),
+        saveCredentials: () => Effect.succeed(undefined),
+        deleteCredentials: Effect.succeed(undefined),
+      }),
+    )
+
+    const program = commentCommand('12345', {}).pipe(
+      Effect.provide(GerritApiServiceLive),
+      Effect.provide(mockConfigLayer),
+    )
+
+    // Simulate piped input with whitespace
+    setTimeout(() => {
+      mockProcessStdin.emit('  \n  Trimmed message  \n  ')
+    }, 10)
+
+    await Effect.runPromise(program)
 
     // Restore process.stdin
     Object.defineProperty(process, 'stdin', {

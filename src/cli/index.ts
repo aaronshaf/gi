@@ -72,6 +72,10 @@ Examples:
   # Post a general comment on a change
   $ ger comment 12345 -m "Looks good to me!"
 
+  # Post a comment using piped input (useful for multi-line comments or scripts)
+  $ echo "This is a comment from stdin!" | ger comment 12345
+  $ cat review-notes.txt | ger comment 12345
+
   # Post a line-specific comment (line number from NEW file version)
   $ ger comment 12345 --file src/main.js --line 42 -m "Consider using const here"
 

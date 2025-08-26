@@ -121,9 +121,22 @@ const createReviewInput = (options: CommentOptions): Effect.Effect<ReviewInput, 
   }
 
   // Overall comment mode
-  return options.message
-    ? Effect.succeed({ message: options.message })
-    : Effect.fail(new Error('Message is required. Use -m "your message"'))
+  if (options.message) {
+    return Effect.succeed({ message: options.message })
+  }
+
+  // If no message provided, read from stdin (for piping support)
+  return pipe(
+    readStdin,
+    Effect.map((stdinContent) => stdinContent.trim()),
+    Effect.flatMap((message) =>
+      message.length > 0
+        ? Effect.succeed({ message })
+        : Effect.fail(
+            new Error('Message is required. Use -m "your message" or pipe content to stdin'),
+          ),
+    ),
+  )
 }
 
 export const commentCommand = (
@@ -224,7 +237,7 @@ const formatHumanOutput = (
       console.log(`Message: ${options.message}`)
       if (options.unresolved) console.log(`Status: Unresolved`)
     } else {
-      console.log(`Message: ${options.message}`)
+      console.log(`Message: ${review.message}`)
     }
   })
 
