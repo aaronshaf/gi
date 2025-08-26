@@ -188,7 +188,7 @@ describe('show command', () => {
     expect(output).toContain('Owner: John Doe')
     expect(output).toContain('Change-Id: I123abc456def')
     expect(output).toContain('🔍 Diff:')
-    expect(output).toContain('💬 Comments:')
+    expect(output).toContain('💬 Inline Comments:')
 
     // Check diff content is included
     expect(output).toContain('src/auth.js')
