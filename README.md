@@ -66,24 +66,43 @@ ger workspace --pretty
 ```
 
 ### Comments
-```bash
-# Post overall comment
-ger comment 12345 -m "LGTM"
-ger comment 12345 --pretty
-echo "Review text" | ger comment 12345
 
-# Post line-specific comment
-# Note: Line numbers refer to the post-merge view (right side of diff)
+#### Overall Comments
+```bash
+# Using -m flag
+ger comment 12345 -m "LGTM"
+
+# Piping plain text (becomes overall comment message)
+echo "Review text" | ger comment 12345
+cat review.txt | ger comment 12345
+```
+
+#### Line-Specific Comments
+```bash
+# Single line comment (line numbers refer to post-merge view)
 ger comment 12345 --file src/main.ts --line 42 -m "Consider error handling"
 
-# Batch line-specific comments (JSON input)
-# Line numbers refer to the final file, not the diff
+# Mark as unresolved
+ger comment 12345 --file src/main.ts --line 42 -m "Fix this" --unresolved
+```
+
+#### Batch Line Comments
+```bash
+# Batch line-specific comments via JSON array
+# Format: [{"file": "path", "line": number, "message": "text"}]
 echo '[
-  {"path": "src/main.ts", "line": 10, "message": "Add type annotation"},
-  {"path": "src/utils.ts", "line": 25, "message": "Extract to constant"}
+  {"file": "src/main.ts", "line": 10, "message": "Add type annotation"},
+  {"file": "src/utils.ts", "line": 25, "message": "Extract to constant"},
+  {"file": "src/api.ts", "line": 100, "message": "Handle error", "unresolved": true}
 ]' | ger comment 12345 --batch
 
-# View all comments with context
+# From a file
+cat comments.json | ger comment 12345 --batch
+```
+
+#### View Comments
+```bash
+# View all comments with diff context
 ger comments 12345
 ger comments 12345 --pretty
 ```
@@ -158,7 +177,7 @@ Message: LGTM
 
 ### Testing
 ```bash
-bun test          # Run tests with 87.9% coverage
+bun test          # Run tests with 87.6% coverage
 bun run typecheck # Type checking
 bun run lint      # Linting with oxlint and biome
 ```
