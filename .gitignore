@@ -1,2 +1,12 @@
 node_modules
 coverage/
+
+# Built binaries and dist files (should not be committed)
+bin/ger-binary
+dist/index.js
+dist/tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -39,6 +39,8 @@
     "dev": "bun run src/cli/index.ts",
     "build": "bun build src/cli/index.ts --compile --outfile=bin/ger-binary",
     "build:bundle": "bun build src/cli/index.ts --outdir=dist --target=bun",
+    "clean": "rm -f bin/ger-binary dist/index.js dist/tsconfig.tsbuildinfo",
+    "install:local": "bun run build && npm link",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:coverage:check": "bun scripts/check-coverage.ts",
