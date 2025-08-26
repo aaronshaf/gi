@@ -1,20 +1,40 @@
-import { describe, expect, test, afterEach } from 'bun:test'
+import { describe, expect, test, afterEach, beforeEach } from 'bun:test'
 import { formatDate, getStatusIndicator, colors } from '@/utils/formatters'
 import { generateMockChange } from '@/test-utils/mock-generator'
 
 describe('Formatters', () => {
   describe('formatDate', () => {
-    const originalDate = Date.now
+    let originalDate: typeof Date
+
+    beforeEach(() => {
+      originalDate = Date
+    })
 
     afterEach(() => {
-      // Restore original Date.now
-      Date.now = originalDate
+      global.Date = originalDate
     })
 
     test("should format today's date with time", () => {
-      // Mock current time to be 2023-12-01 15:00:00
-      const mockNow = new Date('2023-12-01T15:00:00.000Z').getTime()
-      Date.now = () => mockNow
+      // Mock Date to always return a fixed current date when called without args
+      const mockCurrentTime = new originalDate('2023-12-01T15:00:00.000Z')
+
+      // Create a mock Date constructor
+      const MockDate = function (this: any, dateString?: any) {
+        if (arguments.length === 0) {
+          // When called with new Date() - return current time
+          return mockCurrentTime
+        }
+        // When called with new Date(dateString) - return parsed date
+        return new originalDate(dateString)
+      } as any
+
+      // Copy static methods
+      MockDate.now = () => mockCurrentTime.getTime()
+      MockDate.parse = originalDate.parse
+      MockDate.UTC = originalDate.UTC
+      MockDate.prototype = originalDate.prototype
+
+      global.Date = MockDate
 
       const todayDate = '2023-12-01T12:30:00.000Z'
       const result = formatDate(todayDate)
@@ -24,9 +44,22 @@ describe('Formatters', () => {
     })
 
     test("should format this year's date without year", () => {
-      // Mock current time to be 2023-12-01
-      const mockNow = new Date('2023-12-01T15:00:00.000Z').getTime()
-      Date.now = () => mockNow
+      // Mock Date to always return a fixed current date when called without args
+      const mockCurrentTime = new originalDate('2023-12-01T15:00:00.000Z')
+
+      const MockDate = function (this: any, dateString?: any) {
+        if (arguments.length === 0) {
+          return mockCurrentTime
+        }
+        return new originalDate(dateString)
+      } as any
+
+      MockDate.now = () => mockCurrentTime.getTime()
+      MockDate.parse = originalDate.parse
+      MockDate.UTC = originalDate.UTC
+      MockDate.prototype = originalDate.prototype
+
+      global.Date = MockDate
 
       const thisYearDate = '2023-06-15T10:30:00.000Z'
       const result = formatDate(thisYearDate)
@@ -63,9 +96,22 @@ describe('Formatters', () => {
     })
 
     test('should handle edge case of exact midnight', () => {
-      // Mock current time to be exactly midnight
-      const mockNow = new Date('2023-12-01T00:00:00.000Z').getTime()
-      Date.now = () => mockNow
+      // Mock Date to always return a fixed current date when called without args
+      const mockCurrentTime = new originalDate('2023-12-01T00:00:00.000Z')
+
+      const MockDate = function (this: any, dateString?: any) {
+        if (arguments.length === 0) {
+          return mockCurrentTime
+        }
+        return new originalDate(dateString)
+      } as any
+
+      MockDate.now = () => mockCurrentTime.getTime()
+      MockDate.parse = originalDate.parse
+      MockDate.UTC = originalDate.UTC
+      MockDate.prototype = originalDate.prototype
+
+      global.Date = MockDate
 
       const sameDate = '2023-12-01T00:00:00.000Z'
       const result = formatDate(sameDate)
@@ -75,9 +121,22 @@ describe('Formatters', () => {
     })
 
     test('should handle different timezones correctly', () => {
-      // Mock current time
-      const mockNow = new Date('2023-12-01T12:00:00.000Z').getTime()
-      Date.now = () => mockNow
+      // Mock Date to always return a fixed current date when called without args
+      const mockCurrentTime = new originalDate('2023-12-01T12:00:00.000Z')
+
+      const MockDate = function (this: any, dateString?: any) {
+        if (arguments.length === 0) {
+          return mockCurrentTime
+        }
+        return new originalDate(dateString)
+      } as any
+
+      MockDate.now = () => mockCurrentTime.getTime()
+      MockDate.parse = originalDate.parse
+      MockDate.UTC = originalDate.UTC
+      MockDate.prototype = originalDate.prototype
+
+      global.Date = MockDate
 
       // Test with various timezone formats
       const utcDate = '2023-12-01T08:30:00.000Z'
