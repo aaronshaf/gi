@@ -23,7 +23,10 @@ describe('Review Command', () => {
       detectAiTool: () => Effect.succeed('claude'),
       extractResponseTag: (output: string) => Effect.succeed(output),
       runPrompt: (prompt: string, input: string) => {
-        if (prompt.includes('Code Review Prompt for Inline Comments')) {
+        if (
+          prompt.includes('INLINE_REVIEW_SYSTEM_PROMPT') ||
+          prompt.includes('Example Output (THIS IS THE ONLY ACCEPTABLE FORMAT)')
+        ) {
           // Return mock inline comments
           return Effect.succeed(
             JSON.stringify([
@@ -173,7 +176,10 @@ describe('Review Command', () => {
       detectAiTool: () => Effect.succeed('claude'),
       extractResponseTag: (output: string) => Effect.succeed(output),
       runPrompt: (prompt: string, input: string) => {
-        if (prompt.includes('Code Review Prompt for Inline Comments')) {
+        if (
+          prompt.includes('INLINE_REVIEW_SYSTEM_PROMPT') ||
+          prompt.includes('Example Output (THIS IS THE ONLY ACCEPTABLE FORMAT)')
+        ) {
           // Return invalid JSON
           return Effect.succeed('not valid json')
         } else {
@@ -205,7 +211,10 @@ describe('Review Command', () => {
       detectAiTool: () => Effect.succeed('claude'),
       extractResponseTag: (output: string) => Effect.succeed(output),
       runPrompt: (prompt: string, input: string) => {
-        if (prompt.includes('Code Review Prompt for Inline Comments')) {
+        if (
+          prompt.includes('INLINE_REVIEW_SYSTEM_PROMPT') ||
+          prompt.includes('Example Output (THIS IS THE ONLY ACCEPTABLE FORMAT)')
+        ) {
           // Return empty array
           return Effect.succeed('[]')
         } else {
@@ -235,7 +244,9 @@ describe('Review Command', () => {
       detectAiTool: () => Effect.succeed('claude'),
       extractResponseTag: (output: string) => Effect.succeed(output),
       runPrompt: (prompt: string, input: string) => {
-        if (prompt.includes('Code Review Prompt for Inline Comments')) {
+        // Check if this is the inline review prompt (which gets XML data)
+        // Inline prompt contains "JSON array" in its system prompt
+        if (prompt.includes('JSON array wrapped in response tags')) {
           capturedXmlData = input
           return Effect.succeed('[]')
         } else {
@@ -267,10 +278,19 @@ describe('Review Command', () => {
       detectAiTool: () => Effect.succeed('claude'),
       extractResponseTag: (output: string) => Effect.succeed(output),
       runPrompt: (prompt: string, input: string) => {
-        if (prompt.includes('Code Review Prompt for Inline Comments')) {
+        // Check if this is the inline review prompt (which gets XML) or overall (which gets pretty text)
+        if (
+          prompt.includes('Example Output (THIS IS THE ONLY ACCEPTABLE FORMAT)') &&
+          prompt.includes('<response>') &&
+          prompt.includes('JSON')
+        ) {
+          // This is inline review with XML data
           return Effect.succeed('[]')
-        } else {
+        } else if (prompt.includes('OVERALL ASSESSMENT')) {
+          // This is overall review with pretty text data
           capturedPrettyData = input
+          return Effect.succeed('🤖 Claude Code\n\nOVERALL ASSESSMENT\n\nLooks good.')
+        } else {
           return Effect.succeed('🤖 Claude Code\n\nOVERALL ASSESSMENT\n\nLooks good.')
         }
       },

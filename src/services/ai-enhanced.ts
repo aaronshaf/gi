@@ -113,24 +113,14 @@ export const AiServiceEnhanced = Layer.effect(
         // Use custom prompt if configured and this is a review prompt
         let actualPrompt = prompt
         if (
-          prompt.includes('Code Review Prompt for Inline Comments') &&
-          'inlinePromptPath' in aiConfig &&
-          aiConfig.inlinePromptPath
+          prompt.includes('Code Review Instructions') &&
+          'reviewPromptPath' in aiConfig &&
+          aiConfig.reviewPromptPath
         ) {
-          const customPrompt = readPromptFile(aiConfig.inlinePromptPath)
+          const customPrompt = readPromptFile(aiConfig.reviewPromptPath)
           if (customPrompt) {
             actualPrompt = customPrompt
-            yield* Effect.logInfo(`Using custom inline prompt from ${aiConfig.inlinePromptPath}`)
-          }
-        } else if (
-          prompt.includes('Code Review Prompt') &&
-          'overallPromptPath' in aiConfig &&
-          aiConfig.overallPromptPath
-        ) {
-          const customPrompt = readPromptFile(aiConfig.overallPromptPath)
-          if (customPrompt) {
-            actualPrompt = customPrompt
-            yield* Effect.logInfo(`Using custom overall prompt from ${aiConfig.overallPromptPath}`)
+            yield* Effect.logInfo(`Using custom review prompt from ${aiConfig.reviewPromptPath}`)
           }
         }
 

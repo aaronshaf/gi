@@ -1,13 +1,18 @@
+import chalk from 'chalk'
 import { Effect, pipe, Console } from 'effect'
-import { ConfigService, ConfigError } from '@/services/config'
-import { GerritApiService, ApiError } from '@/api/gerrit'
+import {
+  ConfigService,
+  ConfigServiceLive,
+  ConfigError,
+  type ConfigServiceImpl,
+} from '@/services/config'
 import type { GerritCredentials } from '@/schemas/gerrit'
 import type { AiConfig, AppConfig } from '@/schemas/config'
-import * as readline from 'readline/promises'
-import { stdin as input, stdout as output } from 'node:process'
+import { input, password, select, confirm } from '@inquirer/prompts'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { spawn } from 'node:child_process'
 
 // Helper to expand tilde in file paths
 const expandTilde = (filePath: string): string => {
@@ -27,224 +32,247 @@ const validateFilePath = (filePath: string): string | null => {
   return null
 }
 
-// Helper to detect available AI tools
-const detectAvailableAiTools = Effect.gen(function* () {
-  const tools = ['claude', 'llm', 'opencode', 'gemini']
-  const available: string[] = []
+// Check if a command exists on the system
+const checkCommandExists = (command: string): Promise<boolean> =>
+  new Promise((resolve) => {
+    const child = spawn('which', [command], { stdio: 'ignore' })
+    child.on('close', (code) => {
+      resolve(code === 0)
+    })
+    child.on('error', () => {
+      resolve(false)
+    })
+  })
 
-  for (const tool of tools) {
-    const result = yield* Effect.tryPromise({
-      try: async () => {
-        const { exec } = await import('node:child_process')
-        const { promisify } = await import('node:util')
-        const execAsync = promisify(exec)
-        return await execAsync(`which ${tool}`)
-      },
-      catch: () => null,
-    }).pipe(Effect.orElseSucceed(() => null))
+// AI tools to check for in order of preference
+const AI_TOOLS = ['claude', 'llm', 'opencode', 'gemini'] as const
 
-    if (result && result.stdout?.trim()) {
-      available.push(tool)
-    }
-  }
+// Effect wrapper for detecting available AI tools
+const detectAvailableAITools = () =>
+  Effect.tryPromise({
+    try: async () => {
+      const availableTools: string[] = []
 
-  return available
-})
+      for (const tool of AI_TOOLS) {
+        const exists = await checkCommandExists(tool)
+        if (exists) {
+          availableTools.push(tool)
+        }
+      }
+
+      return availableTools
+    },
+    catch: (error) => new ConfigError({ message: `Failed to detect AI tools: ${error}` }),
+  })
+
+// Effect wrapper for getting existing config
+const getExistingConfig = (configService: ConfigServiceImpl) =>
+  configService.getFullConfig.pipe(Effect.orElseSucceed(() => null))
 
 // Test connection with credentials
-const testConnection = (
-  credentials: GerritCredentials,
-): Effect.Effect<boolean, ConfigError, GerritApiService> =>
-  Effect.gen(function* () {
-    const api = yield* GerritApiService
-    const result = yield* api.testConnection.pipe(
-      Effect.map(() => true),
-      Effect.catchAll(() => Effect.succeed(false)),
-    )
-    return result
+const verifyCredentials = (credentials: GerritCredentials) =>
+  Effect.tryPromise({
+    try: async () => {
+      const auth = Buffer.from(`${credentials.username}:${credentials.password}`).toString('base64')
+      const response = await fetch(`${credentials.host}/a/config/server/version`, {
+        headers: { Authorization: `Basic ${auth}` },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Authentication failed: ${response.status}`)
+      }
+
+      return response.ok
+    },
+    catch: (error) => {
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          return new ConfigError({
+            message: 'Invalid credentials. Please check your username and password.',
+          })
+        }
+        if (error.message.includes('ENOTFOUND')) {
+          return new ConfigError({ message: 'Could not connect to Gerrit. Please check the URL.' })
+        }
+        return new ConfigError({ message: error.message })
+      }
+      return new ConfigError({ message: 'Unknown error occurred' })
+    },
   })
 
-export const setupCommand = () =>
-  Effect.gen(function* () {
-    const configService = yield* ConfigService
-
-    yield* Console.log('🔧 Gerrit CLI Setup\n')
-
-    // Check for existing config
-    const existingConfig = yield* configService.getFullConfig.pipe(Effect.orElseSucceed(() => null))
-
-    if (existingConfig) {
-      yield* Console.log('📝 Existing configuration found')
-      yield* Console.log('   (Press Enter to keep existing values)\n')
-    }
-
-    const rl = readline.createInterface({ input, output })
-
-    try {
-      // Gerrit Credentials Section
-      yield* Console.log('━━━ Gerrit Credentials ━━━')
-
-      const host = yield* Effect.promise(async () => {
-        const answer = await rl.question(
-          `Gerrit Host URL${existingConfig ? ` [${existingConfig.credentials.host}]` : ''}: `,
-        )
-        return answer || existingConfig?.credentials.host || ''
-      })
-
-      const username = yield* Effect.promise(async () => {
-        const answer = await rl.question(
-          `Username${existingConfig ? ` [${existingConfig.credentials.username}]` : ''}: `,
-        )
-        return answer || existingConfig?.credentials.username || ''
-      })
-
-      // For password, don't show existing value
-      const password = yield* Effect.promise(async () => {
-        if (existingConfig?.credentials.password && !process.env.CI) {
-          const answer = await rl.question(`HTTP Password (press Enter to keep existing): `)
-          return answer || existingConfig.credentials.password
-        } else {
-          return await rl.question(`HTTP Password: `)
-        }
-      })
-
-      // Validate required fields
-      if (!host || !username || !password) {
-        yield* Console.error('✗ All Gerrit credential fields are required')
-        return yield* Effect.fail(new ConfigError({ message: 'Missing required credentials' }))
-      }
-
-      const credentials: GerritCredentials = {
-        host: host.replace(/\/$/, ''), // Remove trailing slash
-        username,
-        password,
-      }
-
-      // Test connection
-      yield* Console.log('\n→ Testing Gerrit connection...')
-      const connectionOk = yield* testConnection(credentials).pipe(
-        Effect.provideService(GerritApiService, {
-          getChange: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          listChanges: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          postReview: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          abandonChange: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          testConnection: Effect.gen(function* () {
-            const response = yield* Effect.tryPromise({
-              try: async () => {
-                const auth = Buffer.from(
-                  `${credentials.username}:${credentials.password}`,
-                ).toString('base64')
-                return await fetch(`${credentials.host}/a/config/server/version`, {
-                  headers: { Authorization: `Basic ${auth}` },
-                })
-              },
-              catch: (error) => new ApiError({ message: `Connection failed: ${error}` }),
-            })
-            return response.ok
-          }),
-          getRevision: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          getFiles: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          getFileDiff: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          getFileContent: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          getPatch: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          getDiff: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          getComments: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
-          getMessages: () => Effect.fail(new ApiError({ message: 'Not implemented' })),
+// Pure Effect-based setup implementation using inquirer
+const setupEffect = (configService: ConfigServiceImpl) =>
+  pipe(
+    Effect.all([getExistingConfig(configService), detectAvailableAITools()]),
+    Effect.flatMap(([existingConfig, availableTools]) =>
+      pipe(
+        Console.log(chalk.bold('🔧 Gerrit CLI Setup')),
+        Effect.flatMap(() => Console.log('')),
+        Effect.flatMap(() => {
+          if (existingConfig) {
+            return Console.log(chalk.dim('(Press Enter to keep existing values)'))
+          } else {
+            return pipe(
+              Console.log(chalk.cyan('Please provide your Gerrit connection details:')),
+              Effect.flatMap(() =>
+                Console.log(chalk.dim('Example URL: https://gerrit.example.com')),
+              ),
+              Effect.flatMap(() =>
+                Console.log(
+                  chalk.dim(
+                    'You can find your HTTP password in Gerrit Settings > HTTP Credentials',
+                  ),
+                ),
+              ),
+            )
+          }
         }),
-        Effect.orElse(() => Effect.succeed(false)),
-      )
+        Effect.flatMap(() =>
+          Effect.tryPromise({
+            try: async () => {
+              console.log('')
 
-      if (!connectionOk) {
-        yield* Console.error('✗ Failed to connect to Gerrit. Please check your credentials.')
-        const retry = yield* Effect.promise(async () => {
-          const answer = await rl.question('Would you like to continue anyway? (y/N): ')
-          return answer.toLowerCase() === 'y'
-        })
+              // Gerrit Host URL
+              const host = await input({
+                message: 'Gerrit Host URL (e.g., https://gerrit.example.com)',
+                default: existingConfig?.credentials.host,
+              })
 
-        if (!retry) {
-          return yield* Effect.fail(new ConfigError({ message: 'Connection test failed' }))
-        }
-      } else {
-        yield* Console.log('✓ Successfully connected to Gerrit')
-      }
+              // Username
+              const username = await input({
+                message: 'Username (your Gerrit username)',
+                default: existingConfig?.credentials.username,
+              })
 
-      // AI Configuration Section
-      yield* Console.log('\n━━━ AI Tool Configuration (Optional) ━━━')
+              // Password - similar to ji's pattern
+              const passwordValue =
+                (await password({
+                  message: 'HTTP Password (generated from Gerrit settings)',
+                })) ||
+                existingConfig?.credentials.password ||
+                ''
 
-      const availableTools = yield* detectAvailableAiTools
+              console.log('')
+              console.log(chalk.yellow('Optional: AI Configuration'))
 
-      if (availableTools.length > 0) {
-        yield* Console.log(`✓ Detected AI tools: ${availableTools.join(', ')}`)
-      } else {
-        yield* Console.log(
-          'ℹ No AI tools detected. You can install claude, llm, opencode, or gemini.',
-        )
-      }
+              // Show detected AI tools
+              if (availableTools.length > 0) {
+                console.log(chalk.dim(`Detected AI tools: ${availableTools.join(', ')}`))
+              }
 
-      const aiTool = yield* Effect.promise(async () => {
-        const defaultTool = existingConfig?.ai?.tool || availableTools[0] || ''
-        const answer = await rl.question(
-          `Preferred AI tool (claude/llm/opencode/gemini)${defaultTool ? ` [${defaultTool}]` : ''}: `,
-        )
-        return answer || defaultTool
-      })
+              // Get default suggestion
+              const defaultCommand =
+                existingConfig?.ai?.tool ||
+                (availableTools.includes('claude') ? 'claude' : availableTools[0]) ||
+                ''
 
-      const inlinePromptPath = yield* Effect.promise(async () => {
-        const existing = existingConfig?.ai?.inlinePromptPath || ''
-        const answer = await rl.question(
-          `Custom inline review prompt file${existing ? ` [${existing}]` : ''}: `,
-        )
-        return answer || existing
-      })
+              // AI tool command with smart default
+              const aiToolCommand = await input({
+                message:
+                  availableTools.length > 0
+                    ? 'AI tool command (detected from system)'
+                    : 'AI tool command (e.g., claude, llm, opencode, gemini)',
+                default: defaultCommand || 'claude',
+              })
 
-      const overallPromptPath = yield* Effect.promise(async () => {
-        const existing = existingConfig?.ai?.overallPromptPath || ''
-        const answer = await rl.question(
-          `Custom overall review prompt file${existing ? ` [${existing}]` : ''}: `,
-        )
-        return answer || existing
-      })
+              // Custom review prompt
+              let reviewPromptPath = await input({
+                message: 'Path to custom review prompt file (optional, e.g., ~/prompts/review.md)',
+                default: existingConfig?.ai?.reviewPromptPath || '',
+              })
 
-      // Validate prompt files if provided
-      const validatedInlinePath = validateFilePath(inlinePromptPath)
-      const validatedOverallPath = validateFilePath(overallPromptPath)
+              // Validate review prompt file if provided
+              if (reviewPromptPath) {
+                const validated = validateFilePath(reviewPromptPath)
+                if (!validated) {
+                  console.log(chalk.red(`File not found: ${reviewPromptPath}`))
+                  reviewPromptPath = await input({
+                    message: 'Enter a valid path or press Enter to skip',
+                    default: '',
+                  })
+                  if (reviewPromptPath) {
+                    const secondValidation = validateFilePath(reviewPromptPath)
+                    if (!secondValidation) {
+                      console.log(chalk.yellow('Skipping custom review prompt file'))
+                      reviewPromptPath = ''
+                    }
+                  }
+                }
+              }
 
-      if (inlinePromptPath && !validatedInlinePath) {
-        yield* Console.log(`⚠️  Inline prompt file not found: ${inlinePromptPath}`)
-      }
+              const credentials: GerritCredentials = {
+                host: host.trim().replace(/\/$/, ''), // Remove trailing slash
+                username: username.trim(),
+                password: passwordValue,
+              }
 
-      if (overallPromptPath && !validatedOverallPath) {
-        yield* Console.log(`⚠️  Overall prompt file not found: ${overallPromptPath}`)
-      }
+              // Build AI config
+              const aiConfig: AiConfig = {
+                ...(aiToolCommand && {
+                  tool: aiToolCommand as 'claude' | 'llm' | 'opencode' | 'gemini',
+                }),
+                ...(reviewPromptPath && { reviewPromptPath }),
+                autoDetect: !aiToolCommand,
+              }
 
-      // Build AI config
-      const aiConfig: AiConfig = {
-        ...(aiTool && { tool: aiTool as 'claude' | 'llm' | 'opencode' | 'gemini' }),
-        ...(validatedInlinePath && { inlinePromptPath: validatedInlinePath }),
-        ...(validatedOverallPath && { overallPromptPath: validatedOverallPath }),
-        autoDetect: !aiTool,
-      }
+              // Build full config
+              const fullConfig: AppConfig = {
+                credentials,
+                ai: aiConfig,
+              }
 
-      // Build full config
-      const fullConfig: AppConfig = {
-        credentials,
-        ai: aiConfig,
-      }
+              return fullConfig
+            },
+            catch: (error) => {
+              if (error instanceof Error && error.message.includes('User force closed')) {
+                console.log(`\n${chalk.yellow('Setup cancelled')}`)
+                process.exit(0)
+              }
+              return new ConfigError({
+                message: error instanceof Error ? error.message : 'Failed to get user input',
+              })
+            },
+          }),
+        ),
+      ),
+    ),
+    Effect.tap(() => Console.log('\nVerifying credentials...')),
+    Effect.flatMap((config) =>
+      pipe(
+        verifyCredentials(config.credentials),
+        Effect.map(() => config),
+      ),
+    ),
+    Effect.tap(() => Console.log(chalk.green('Successfully authenticated'))),
+    Effect.flatMap((config) => configService.saveFullConfig(config)),
+    Effect.tap(() => Console.log(chalk.green('\nConfiguration saved successfully!'))),
+    Effect.tap(() => Console.log('You can now use:')),
+    Effect.tap(() => Console.log('  • "ger mine" to view your changes')),
+    Effect.tap(() => Console.log('  • "ger show <change-id>" to view change details')),
+    Effect.tap(() => Console.log('  • "ger review <change-id>" to review with AI')),
+    Effect.catchAll((error) =>
+      pipe(
+        Console.error(
+          chalk.red(
+            `\nAuthentication failed: ${error instanceof ConfigError ? error.message : 'Unknown error'}`,
+          ),
+        ),
+        Effect.flatMap(() => Console.error('Please check your credentials and try again.')),
+        Effect.flatMap(() => Effect.fail(error)),
+      ),
+    ),
+  )
 
-      // Save configuration
-      yield* Console.log('\n→ Saving configuration...')
-      yield* configService.saveFullConfig(fullConfig)
+export async function setup() {
+  const program = pipe(
+    ConfigService,
+    Effect.flatMap((configService) => setupEffect(configService)),
+  ).pipe(Effect.provide(ConfigServiceLive))
 
-      yield* Console.log('✓ Configuration saved to ~/.gi/config.json')
-      yield* Console.log('\n🎉 Setup complete! You can now use gi commands.')
-
-      if (!aiTool && availableTools.length === 0) {
-        yield* Console.log('\nℹ️  To use AI features (gi review), install one of:')
-        yield* Console.log('   - claude: https://claude.ai/cli')
-        yield* Console.log('   - llm: https://llm.datasette.io/')
-        yield* Console.log('   - opencode: npm install -g opencode')
-      }
-    } finally {
-      rl.close()
-    }
-  })
+  try {
+    await Effect.runPromise(program)
+  } catch (_error) {
+    // Error already handled and displayed
+    process.exit(1)
+  }
+}

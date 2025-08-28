@@ -4,8 +4,7 @@ import { GerritCredentials } from './gerrit'
 // AI Configuration Schema
 export const AiConfig = Schema.Struct({
   tool: Schema.optional(Schema.Literal('claude', 'llm', 'opencode', 'gemini')),
-  inlinePromptPath: Schema.optional(Schema.String),
-  overallPromptPath: Schema.optional(Schema.String),
+  reviewPromptPath: Schema.optional(Schema.String),
   autoDetect: Schema.optionalWith(Schema.Boolean, { default: () => true }),
 })
 
@@ -18,8 +17,3 @@ export const AppConfig = Schema.Struct({
 })
 
 export type AppConfig = Schema.Schema.Type<typeof AppConfig>
-
-// Legacy format support - just credentials
-export const LegacyConfig = GerritCredentials
-
-export type LegacyConfig = Schema.Schema.Type<typeof LegacyConfig>

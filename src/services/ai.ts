@@ -64,7 +64,7 @@ export const AiServiceLive = Layer.succeed(
     detectAiTool: () =>
       Effect.gen(function* () {
         // Try to detect available AI tools in order of preference
-        const tools = ['claude', 'llm', 'opencode']
+        const tools = ['claude', 'llm', 'opencode', 'gemini']
 
         for (const tool of tools) {
           const result = yield* Effect.tryPromise({
@@ -79,7 +79,7 @@ export const AiServiceLive = Layer.succeed(
 
         return yield* Effect.fail(
           new NoAiToolFoundError({
-            message: 'No AI tool found. Please install claude, llm, or opencode CLI.',
+            message: 'No AI tool found. Please install claude, llm, opencode, or gemini CLI.',
           }),
         )
       }),
@@ -105,7 +105,7 @@ export const AiServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const tool = yield* Effect.gen(function* () {
           // Try to detect available AI tools in order of preference
-          const tools = ['claude', 'llm', 'opencode']
+          const tools = ['claude', 'llm', 'opencode', 'gemini']
 
           for (const tool of tools) {
             const result = yield* Effect.tryPromise({
@@ -120,7 +120,7 @@ export const AiServiceLive = Layer.succeed(
 
           return yield* Effect.fail(
             new NoAiToolFoundError({
-              message: 'No AI tool found. Please install claude, llm, or opencode CLI.',
+              message: 'No AI tool found. Please install claude, llm, opencode, or gemini CLI.',
             }),
           )
         })

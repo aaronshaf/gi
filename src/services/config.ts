@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer } from 'effect'
 import { GerritCredentials } from '@/schemas/gerrit'
-import { AiConfig, AppConfig, LegacyConfig } from '@/schemas/config'
+import { AiConfig, AppConfig } from '@/schemas/config'
 
 export interface ConfigServiceImpl {
   readonly getCredentials: Effect.Effect<GerritCredentials, ConfigError>
@@ -26,52 +26,11 @@ export class ConfigError extends Schema.TaggedError<ConfigError>()('ConfigError'
 } as const) {}
 
 // File-based storage
-const CONFIG_DIR = path.join(os.homedir(), '.gi')
+const CONFIG_DIR = path.join(os.homedir(), '.ger')
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json')
-const LEGACY_CONFIG_DIR = path.join(os.homedir(), '.ger')
-const LEGACY_CONFIG_FILE = path.join(LEGACY_CONFIG_DIR, 'auth.json')
-
-// Helper to migrate legacy config if exists
-const migrateLegacyConfig = (): void => {
-  try {
-    if (fs.existsSync(LEGACY_CONFIG_FILE) && !fs.existsSync(CONFIG_FILE)) {
-      const legacyContent = fs.readFileSync(LEGACY_CONFIG_FILE, 'utf8')
-      const legacyConfig = JSON.parse(legacyContent)
-
-      // Create new config with legacy credentials
-      const newConfig: AppConfig = {
-        credentials: legacyConfig,
-        ai: { autoDetect: true },
-      }
-
-      // Ensure new config directory exists
-      if (!fs.existsSync(CONFIG_DIR)) {
-        fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
-      }
-
-      // Write new config
-      fs.writeFileSync(CONFIG_FILE, JSON.stringify(newConfig, null, 2), 'utf8')
-      fs.chmodSync(CONFIG_FILE, 0o600)
-
-      // Remove legacy config
-      fs.unlinkSync(LEGACY_CONFIG_FILE)
-
-      // Remove legacy directory if empty
-      const legacyDirContents = fs.readdirSync(LEGACY_CONFIG_DIR)
-      if (legacyDirContents.length === 0) {
-        fs.rmdirSync(LEGACY_CONFIG_DIR)
-      }
-    }
-  } catch {
-    // Ignore migration errors
-  }
-}
 
 const readFileConfig = (): unknown | null => {
   try {
-    // First attempt migration
-    migrateLegacyConfig()
-
     if (fs.existsSync(CONFIG_FILE)) {
       const content = fs.readFileSync(CONFIG_FILE, 'utf8')
       return JSON.parse(content)
@@ -111,37 +70,17 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
       if (!fileContent) {
         return yield* Effect.fail(
           new ConfigError({
-            message: 'Configuration not found. Run "gi setup" to set up your credentials.',
+            message: 'Configuration not found. Run "ger setup" to set up your credentials.',
           }),
         )
       }
 
-      // Try to parse as full config first
+      // Parse as full config
       const fullConfigResult = yield* Schema.decodeUnknown(AppConfig)(fileContent).pipe(
-        Effect.either,
+        Effect.mapError(() => new ConfigError({ message: 'Invalid configuration format' })),
       )
 
-      if (fullConfigResult._tag === 'Right') {
-        return fullConfigResult.right
-      }
-
-      // Try legacy format (just credentials)
-      const legacyResult = yield* Schema.decodeUnknown(LegacyConfig)(fileContent).pipe(
-        Effect.either,
-      )
-
-      if (legacyResult._tag === 'Right') {
-        // Convert legacy to full config
-        const fullConfig: AppConfig = {
-          credentials: legacyResult.right,
-          ai: { autoDetect: true },
-        }
-        // Save the upgraded config
-        writeFileConfig(fullConfig)
-        return fullConfig
-      }
-
-      return yield* Effect.fail(new ConfigError({ message: 'Invalid configuration format' }))
+      return fullConfigResult
     })
 
     const saveFullConfig = (config: AppConfig) =>

@@ -1,7 +1,5 @@
 import { Effect, pipe } from 'effect'
 import { AiService } from '@/services/ai'
-import { INLINE_REVIEW_PROMPT } from '@/prompts/inline-review'
-import { OVERALL_REVIEW_PROMPT } from '@/prompts/overall-review'
 import { commentCommand } from './comment'
 import { Console } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
@@ -11,6 +9,51 @@ import { sanitizeCDATA, escapeXML } from '@/utils/shell-safety'
 import { formatDiffPretty } from '@/utils/diff-formatters'
 import { formatCommentsPretty } from '@/utils/comment-formatters'
 import { formatDate } from '@/utils/formatters'
+import { ConfigService } from '@/services/config'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
+
+// Get the directory of this module
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+// Load default prompts from .md files
+const DEFAULT_REVIEW_PROMPT = fs.readFileSync(
+  path.join(__dirname, '../../prompts/default-review.md'),
+  'utf8',
+)
+const INLINE_REVIEW_SYSTEM_PROMPT = fs.readFileSync(
+  path.join(__dirname, '../../prompts/system-inline-review.md'),
+  'utf8',
+)
+const OVERALL_REVIEW_SYSTEM_PROMPT = fs.readFileSync(
+  path.join(__dirname, '../../prompts/system-overall-review.md'),
+  'utf8',
+)
+
+// Helper to expand tilde in file paths
+const expandTilde = (filePath: string): string => {
+  if (filePath.startsWith('~/')) {
+    return path.join(os.homedir(), filePath.slice(2))
+  }
+  return filePath
+}
+
+// Helper to read prompt file
+const readPromptFile = (filePath: string): string | null => {
+  try {
+    const expanded = expandTilde(filePath)
+    if (fs.existsSync(expanded)) {
+      return fs.readFileSync(expanded, 'utf8')
+    }
+  } catch {
+    // Ignore errors
+  }
+  return null
+}
 
 interface ReviewOptions {
   debug?: boolean
@@ -205,6 +248,7 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
   Effect.gen(function* () {
     const aiService = yield* AiService
     const gerritApi = yield* GerritApiService
+    const configService = yield* ConfigService
 
     // Check for AI tool availability first
     yield* Console.log('→ Checking for AI tool availability...')
@@ -212,6 +256,23 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
       .detectAiTool()
       .pipe(Effect.catchTag('NoAiToolFoundError', (error) => Effect.fail(new Error(error.message))))
     yield* Console.log(`✓ Found AI tool: ${aiTool}`)
+
+    // Load custom review prompt from config if available
+    const config = yield* configService.getAiConfig.pipe(Effect.orElseSucceed(() => null))
+
+    let userReviewPrompt = DEFAULT_REVIEW_PROMPT
+
+    if (config?.reviewPromptPath) {
+      const customPrompt = readPromptFile(config.reviewPromptPath)
+      if (customPrompt) {
+        userReviewPrompt = customPrompt
+        yield* Console.log(`✓ Using custom review prompt from ${config.reviewPromptPath}`)
+      }
+    }
+
+    // Combine user prompt with system prompts for each stage
+    const inlinePrompt = `${userReviewPrompt}\n\n${INLINE_REVIEW_SYSTEM_PROMPT}`
+    const overallPrompt = `${userReviewPrompt}\n\n${OVERALL_REVIEW_SYSTEM_PROMPT}`
 
     yield* Console.log(`→ Fetching change data for ${changeId}...`)
 
@@ -226,7 +287,7 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
     }
 
     // Run inline review
-    const inlineResponse = yield* aiService.runPrompt(INLINE_REVIEW_PROMPT, xmlData).pipe(
+    const inlineResponse = yield* aiService.runPrompt(inlinePrompt, xmlData).pipe(
       Effect.catchTag('AiResponseParseError', (error) =>
         Effect.gen(function* () {
           if (options.debug) {
@@ -310,7 +371,7 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
     }
 
     // Run overall review
-    const overallResponse = yield* aiService.runPrompt(OVERALL_REVIEW_PROMPT, prettyData).pipe(
+    const overallResponse = yield* aiService.runPrompt(overallPrompt, prettyData).pipe(
       Effect.catchTag('AiResponseParseError', (error) =>
         Effect.gen(function* () {
           if (options.debug) {

@@ -1,21 +1,23 @@
 import { Effect } from 'effect'
-import { render } from 'ink'
-import React from 'react'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
-import { ChangeSelector } from '@/cli/components/ChangeSelector'
-import type { ChangeInfo } from '@/schemas/gerrit'
 
 interface AbandonOptions {
   message?: string
   xml?: boolean
 }
 
-const abandonSingleChange = (
-  changeId: string,
-  options: AbandonOptions,
+export const abandonCommand = (
+  changeId?: string,
+  options: AbandonOptions = {},
 ): Effect.Effect<void, ApiError, GerritApiService> =>
   Effect.gen(function* () {
     const gerritApi = yield* GerritApiService
+
+    if (!changeId) {
+      console.error('✗ Change ID is required')
+      console.error('  Usage: ger abandon <change-id>')
+      return
+    }
 
     try {
       // First get the change details to show what we're abandoning
@@ -59,81 +61,5 @@ const abandonSingleChange = (
           console.log(`  Message: ${options.message}`)
         }
       }
-    }
-  })
-
-export const abandonCommand = (
-  changeId?: string,
-  options: AbandonOptions = {},
-): Effect.Effect<void, ApiError, GerritApiService> =>
-  Effect.gen(function* () {
-    const gerritApi = yield* GerritApiService
-
-    if (!changeId) {
-      // Check if we're in a TTY environment (required for interactive mode)
-      if (!process.stdin.isTTY) {
-        console.error('✗ Change ID is required when running in non-TTY environment')
-        console.error('  Usage: ger abandon <change-id>')
-        return
-      }
-
-      // Interactive mode when no change ID provided
-      const changes = yield* gerritApi.listChanges('owner:self status:open')
-
-      if (changes.length === 0) {
-        console.log('No open changes found')
-        return
-      }
-
-      return yield* Effect.promise(
-        () =>
-          new Promise<void>((resolve, reject) => {
-            const app = render(
-              React.createElement(ChangeSelector, {
-                changes,
-                onSelect: async (selectedChanges: ChangeInfo[]) => {
-                  app.unmount()
-
-                  if (selectedChanges.length === 0) {
-                    console.log('No changes selected')
-                    resolve()
-                    return
-                  }
-
-                  console.log(`\nAbandoning ${selectedChanges.length} change(s)...\n`)
-
-                  for (const change of selectedChanges) {
-                    try {
-                      await Effect.runPromise(
-                        abandonSingleChange(change.change_id, options).pipe(
-                          Effect.provideService(GerritApiService, gerritApi),
-                        ),
-                      )
-                    } catch (error) {
-                      console.error(
-                        `Failed to abandon change ${change._number}: ${error instanceof Error ? error.message : String(error)}`,
-                      )
-                    }
-                  }
-
-                  resolve()
-                },
-                onCancel: () => {
-                  app.unmount()
-                  console.log('\nAbandoning cancelled')
-                  resolve()
-                },
-              }),
-            )
-
-            app
-              .waitUntilExit()
-              .then(() => resolve())
-              .catch(reject)
-          }),
-      )
-    } else {
-      // Non-interactive mode: abandon single change
-      return yield* abandonSingleChange(changeId, options)
     }
   })
