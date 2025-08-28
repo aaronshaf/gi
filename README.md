@@ -23,7 +23,7 @@ bun install -g @aaronshaf/gi
 ## Getting Started
 
 ```bash
-gi init
+gi setup
 ```
 
 This will prompt for your Gerrit credentials:
@@ -239,7 +239,7 @@ The review command performs a two-stage review process:
 
 Requirements:
 - One of these AI tools must be installed: `claude`, `llm`, or `opencode`
-- Gerrit credentials must be configured (`gi init`)
+- Gerrit credentials must be configured (`gi setup`)
 
 ## LLM Integration
 
@@ -287,7 +287,7 @@ bun update -g @aaronshaf/gi
 After upgrading, you may want to review new configuration options:
 
 ```bash
-gi init  # Review and update your configuration
+gi setup  # Review and update your configuration
 ```
 
 ## Development

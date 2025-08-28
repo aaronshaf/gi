@@ -111,7 +111,7 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
       if (!fileContent) {
         return yield* Effect.fail(
           new ConfigError({
-            message: 'Configuration not found. Run "gi init" to set up your credentials.',
+            message: 'Configuration not found. Run "gi setup" to set up your credentials.',
           }),
         )
       }
