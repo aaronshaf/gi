@@ -130,15 +130,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build application
+      - name: Build check
         run: bun run build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: dist/
-          retention-days: 7
 
   # Complete check that mirrors pre-commit hooks
   all-checks:

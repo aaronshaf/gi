@@ -46,6 +46,7 @@
   "scripts": {
     "prepare": "husky",
     "dev": "bun run src/cli/index.ts",
+    "build": "tsc --noEmit && echo 'Build successful - CLI runs directly with bun'",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:coverage:check": "bun scripts/check-coverage.ts",
