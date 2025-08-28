@@ -9,15 +9,16 @@ Use CAPS for section headers (not ## or #):
 
 Do not include empty sections. Only include sections where you have substantive content.
 
-IMPORTANT: Gerrit has limited markdown support:
-- DO NOT use bold (**text**) or italic (*text*)
+IMPORTANT: Gerrit formatting rules:
+- DO NOT use markdown-style bold (**text**) or italic (*text*)
 - DO NOT use headers with # or ##
 - USE CAPS for emphasis instead
 - Use plain text for most content
-- For code blocks: DO NOT use backticks - instead use plain indentation or [code] markers
-- For inline code: DO NOT use backticks - use quotes or plain text instead
-- Use * or - for bullet points
-- CRITICAL: Never use backticks anywhere in your response as they will cause shell execution errors
+- For code blocks: Start each line with a leading space (NOT backticks)
+- For inline code: Use quotes like 'code' or "code" (NOT backticks)
+- Use * or - for bullet points (both work)
+- Block quotes: Start line with > (with or without leading space)
+- CRITICAL: Never use backticks (```) anywhere - they are NOT supported by Gerrit
 
 ## CRITICAL OUTPUT REQUIREMENT
 
@@ -27,32 +28,35 @@ The review content inside the response tags should start with "🤖 Claude Code"
 
 ## Example Output (THIS IS THE ONLY ACCEPTABLE FORMAT)
 
-CRITICAL: DO NOT USE ANY BACKTICKS IN YOUR RESPONSE. Use indentation or [code] blocks instead.
-
 <response>
 🤖 Claude Code
 
 CRITICAL ISSUES
 
-Authorization bypass vulnerability: The authorization check in used_locations occurs AFTER revealing rubric existence (verified this is NOT fixed in current patchset):
+SQL Logic Error - Incorrect NULL handling: The SQL expression in app/graphql/loaders/section_grade_posted_state.rb:39 has a critical flaw:
 
-[showing ruby code]
-rubric = @context.rubric_associations.bookmarked.find_by(rubric_id: params[:id])&.rubric
-return unless authorized_action(@context, @current_user, :manage_rubrics)
-[end code]
+ NOT bool_or(((submissions.score IS NOT NULL AND submissions.workflow_state = 'graded') OR submissions.excused = true) AND submissions.posted_at IS NULL)
 
-This allows unauthorized users to determine which rubric IDs exist via timing and response differences.
+When a section has only ungraded, non-excused submissions, bool_or returns NULL (not FALSE) because no rows match the condition. The !! operator on line 41 then converts NULL to false, incorrectly indicating grades are "not posted". This contradicts the test expectation on line 135 of the spec that ungraded submissions should be considered "posted".
 
 ISSUES FOUND
 
-Missing nil safety in downstream method:
-After checking the latest changes, the used_locations_for method (app/controllers/rubrics_api_controller.rb:507) still directly calls rubric.used_locations without nil checking.
+Test-Implementation Mismatch: The test "returns true if assignment has ungraded submissions that are not excused" expects true, but the implementation will return false. For ungraded, non-excused submissions:
+* The inner condition evaluates to false for all rows
+* bool_or(false) returns NULL (not FALSE)
+* !!nil becomes false
+
+Missing NULL Safety: In app/graphql/loaders/section_grades_present_state.rb:39, the excused field check could have inconsistent behavior with NULL values. Use COALESCE(submissions.excused, false) = true for explicit NULL handling.
 
 RECOMMENDATIONS
 
-* Move authorization check before any database queries
-* Add consistent error handling for both "not found" and "unauthorized" cases
-* Consider extracting the pattern if used elsewhere
+Replace the SQL logic with:
+
+ COALESCE(
+   NOT bool_or(((submissions.score IS NOT NULL AND submissions.workflow_state = 'graded') OR 
+   COALESCE(submissions.excused, false) = true) AND submissions.posted_at IS NULL),
+   true
+ )
 
 OVERALL ASSESSMENT
 
