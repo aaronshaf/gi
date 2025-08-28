@@ -8,6 +8,7 @@ import { ConfigService } from '@/services/config'
 import { generateMockChange } from '@/test-utils/mock-generator'
 import type { MessageInfo } from '@/schemas/gerrit'
 
+import { createMockConfigService } from './helpers/config-mock'
 const server = setupServer(
   // Default handler for auth check
   http.get('*/a/accounts/self', ({ request }) => {
@@ -153,19 +154,7 @@ describe('show command', () => {
     )
   }
 
-  const createMockConfigLayer = () =>
-    Layer.succeed(
-      ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
-      }),
-    )
+  const createMockConfigLayer = () => Layer.succeed(ConfigService, createMockConfigService())
 
   test('should display comprehensive change information in pretty format', async () => {
     setupMockHandlers()

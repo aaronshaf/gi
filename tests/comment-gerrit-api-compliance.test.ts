@@ -7,6 +7,7 @@ import { GerritApiServiceLive } from '@/api/gerrit'
 import { commentCommand } from '@/cli/commands/comment'
 import { EventEmitter } from 'node:events'
 
+import { createMockConfigService } from './helpers/config-mock'
 // Create a mock process.stdin for testing
 class MockProcessStdin extends EventEmitter {
   isTTY = false
@@ -59,18 +60,7 @@ describe('Gerrit API Compliance Tests', () => {
       }),
     )
 
-    const mockConfigLayer = Layer.succeed(
-      ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
-      }),
-    )
+    const mockConfigLayer = Layer.succeed(ConfigService, createMockConfigService())
 
     const program = commentCommand('12345', { batch: true }).pipe(
       Effect.provide(GerritApiServiceLive),
@@ -176,18 +166,7 @@ describe('Gerrit API Compliance Tests', () => {
       }),
     )
 
-    const mockConfigLayer = Layer.succeed(
-      ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
-      }),
-    )
+    const mockConfigLayer = Layer.succeed(ConfigService, createMockConfigService())
 
     const program = commentCommand('12345', { batch: true }).pipe(
       Effect.provide(GerritApiServiceLive),
@@ -381,18 +360,7 @@ describe('Gerrit API Compliance Tests', () => {
       }),
     )
 
-    const mockConfigLayer = Layer.succeed(
-      ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
-      }),
-    )
+    const mockConfigLayer = Layer.succeed(ConfigService, createMockConfigService())
 
     const program = commentCommand('12345', { batch: true }).pipe(
       Effect.provide(GerritApiServiceLive),
