@@ -58,6 +58,8 @@ const readPromptFile = (filePath: string): string | null => {
 interface ReviewOptions {
   debug?: boolean
   dryRun?: boolean
+  comment?: boolean
+  yes?: boolean
 }
 
 // Helper to get change data and format as XML string
@@ -244,6 +246,21 @@ const getChangeDataAsPretty = (
     return lines.join('\n')
   })
 
+// Helper function to prompt user for confirmation
+const promptUser = (message: string): Effect.Effect<boolean, never> =>
+  Effect.async<boolean, never>((resume) => {
+    const readline = require('readline')
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    })
+
+    rl.question(`${message} [y/N]: `, (answer: string) => {
+      rl.close()
+      resume(Effect.succeed(answer.toLowerCase() === 'y'))
+    })
+  })
+
 export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
   Effect.gen(function* () {
     const aiService = yield* AiService
@@ -320,44 +337,68 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
       return yield* Effect.fail(new Error('Invalid inline comments format'))
     }
 
-    if (inlineComments.length > 0) {
-      if (options.dryRun) {
-        yield* Console.log('→ [DRY RUN] Would post inline comments:')
-        yield* Console.log(JSON.stringify(inlineComments, null, 2))
+    // If not in comment mode, just output the inline comments
+    if (!options.comment) {
+      if (inlineComments.length > 0) {
+        yield* Console.log('\n━━━━━━ INLINE COMMENTS ━━━━━━')
+        for (const comment of inlineComments) {
+          yield* Console.log(`\n📍 ${comment.file}${comment.line ? `:${comment.line}` : ''}`)
+          yield* Console.log(comment.message)
+        }
       } else {
-        // Write comments to stdin and post using batch comment
-        // We need to simulate stdin input for the comment command
-        const originalStdin = process.stdin
-        const { Readable } = require('stream')
-        const stdinStream = new Readable()
-        stdinStream.push(JSON.stringify(inlineComments))
-        stdinStream.push(null)
-        Object.defineProperty(process, 'stdin', {
-          value: stdinStream,
-          configurable: true,
-        })
-
-        yield* pipe(
-          commentCommand(changeId, { batch: true }),
-          Effect.catchAll((error) =>
-            Effect.gen(function* () {
-              yield* Console.error(`✗ Failed to post inline comments: ${error}`)
-              return yield* Effect.fail(error)
-            }),
-          ),
-          Effect.ensuring(
-            Effect.sync(() => {
-              Object.defineProperty(process, 'stdin', {
-                value: originalStdin,
-                configurable: true,
-              })
-            }),
-          ),
-        )
-        yield* Console.log(`✓ Inline comments posted for ${changeId}`)
+        yield* Console.log('\n→ No inline comments')
       }
     } else {
-      yield* Console.log('→ No inline comments to post')
+      // In comment mode, handle posting
+      if (inlineComments.length > 0) {
+        yield* Console.log('\n━━━━━━ INLINE COMMENTS TO POST ━━━━━━')
+        for (const comment of inlineComments) {
+          yield* Console.log(`\n📍 ${comment.file}${comment.line ? `:${comment.line}` : ''}`)
+          yield* Console.log(comment.message)
+        }
+        yield* Console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+        // Ask for confirmation unless --yes is provided
+        const shouldPost = options.yes
+          ? true
+          : yield* promptUser('\nPost these inline comments to Gerrit?')
+
+        if (shouldPost) {
+          // Write comments to stdin and post using batch comment
+          const originalStdin = process.stdin
+          const { Readable } = require('stream')
+          const stdinStream = new Readable()
+          stdinStream.push(JSON.stringify(inlineComments))
+          stdinStream.push(null)
+          Object.defineProperty(process, 'stdin', {
+            value: stdinStream,
+            configurable: true,
+          })
+
+          yield* pipe(
+            commentCommand(changeId, { batch: true }),
+            Effect.catchAll((error) =>
+              Effect.gen(function* () {
+                yield* Console.error(`✗ Failed to post inline comments: ${error}`)
+                return yield* Effect.fail(error)
+              }),
+            ),
+            Effect.ensuring(
+              Effect.sync(() => {
+                Object.defineProperty(process, 'stdin', {
+                  value: originalStdin,
+                  configurable: true,
+                })
+              }),
+            ),
+          )
+          yield* Console.log(`✓ Inline comments posted for ${changeId}`)
+        } else {
+          yield* Console.log('→ Inline comments not posted')
+        }
+      } else {
+        yield* Console.log('\n→ No inline comments to post')
+      }
     }
 
     // Stage 2: Generate overall review comment
@@ -389,40 +430,56 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
       yield* Console.log(`[DEBUG] Overall response:\n${overallResponse}`)
     }
 
-    if (options.dryRun) {
-      yield* Console.log('→ [DRY RUN] Would post overall review:')
+    // If not in comment mode, just output the review
+    if (!options.comment) {
+      yield* Console.log('\n━━━━━━ OVERALL REVIEW ━━━━━━')
       yield* Console.log(overallResponse)
+      yield* Console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     } else {
-      // Post overall comment
-      const originalStdin = process.stdin
-      const { Readable } = require('stream')
-      const stdinStream = new Readable()
-      stdinStream.push(overallResponse)
-      stdinStream.push(null)
-      Object.defineProperty(process, 'stdin', {
-        value: stdinStream,
-        configurable: true,
-      })
+      // In comment mode, handle posting
+      yield* Console.log('\n━━━━━━ OVERALL REVIEW TO POST ━━━━━━')
+      yield* Console.log(overallResponse)
+      yield* Console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
-      yield* pipe(
-        commentCommand(changeId, {}),
-        Effect.catchAll((error) =>
-          Effect.gen(function* () {
-            yield* Console.error(`✗ Failed to post review comment: ${error}`)
-            return yield* Effect.fail(error)
-          }),
-        ),
-        Effect.ensuring(
-          Effect.sync(() => {
-            Object.defineProperty(process, 'stdin', {
-              value: originalStdin,
-              configurable: true,
-            })
-          }),
-        ),
-      )
-      yield* Console.log(`✓ Review comment posted for ${changeId}`)
+      // Ask for confirmation unless --yes is provided
+      const shouldPost = options.yes
+        ? true
+        : yield* promptUser('\nPost this overall review to Gerrit?')
+
+      if (shouldPost) {
+        // Post overall comment
+        const originalStdin = process.stdin
+        const { Readable } = require('stream')
+        const stdinStream = new Readable()
+        stdinStream.push(overallResponse)
+        stdinStream.push(null)
+        Object.defineProperty(process, 'stdin', {
+          value: stdinStream,
+          configurable: true,
+        })
+
+        yield* pipe(
+          commentCommand(changeId, {}),
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              yield* Console.error(`✗ Failed to post review comment: ${error}`)
+              return yield* Effect.fail(error)
+            }),
+          ),
+          Effect.ensuring(
+            Effect.sync(() => {
+              Object.defineProperty(process, 'stdin', {
+                value: originalStdin,
+                configurable: true,
+              })
+            }),
+          ),
+        )
+        yield* Console.log(`✓ Overall review posted for ${changeId}`)
+      } else {
+        yield* Console.log('→ Overall review not posted')
+      }
     }
 
-    yield* Console.log(`✓ Complete review finished for ${changeId}`)
+    yield* Console.log(`✓ Review complete for ${changeId}`)
   })

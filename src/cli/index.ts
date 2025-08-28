@@ -363,9 +363,10 @@ program
 // review command
 program
   .command('review <change-id>')
-  .description('AI-powered code review that posts inline and overall comments')
+  .description('AI-powered code review that analyzes changes and optionally posts comments')
+  .option('--comment', 'Post the review as comments (prompts for confirmation)')
+  .option('-y, --yes', 'Skip confirmation prompts when posting comments')
   .option('--debug', 'Show debug output including AI responses')
-  .option('--dry-run', 'Preview comments without posting them')
   .addHelpText(
     'after',
     `
@@ -375,16 +376,23 @@ It performs a two-stage review process:
 1. Generates inline comments for specific code issues
 2. Generates an overall review comment
 
+By default, the review is only displayed in the terminal.
+Use --comment to post the review to Gerrit (with confirmation prompts).
+Use --comment --yes to post without confirmation.
+
 Requirements:
   - One of these AI tools must be installed: claude, llm, or opencode
   - Gerrit credentials must be configured (run 'ger setup' first)
 
 Examples:
-  # Review a change and post comments
+  # Review a change (display only)
   $ ger review 12345
   
-  # Preview what would be posted without actually posting
-  $ ger review 12345 --dry-run
+  # Review and prompt to post comments
+  $ ger review 12345 --comment
+  
+  # Review and auto-post comments without prompting
+  $ ger review 12345 --comment --yes
   
   # Show debug output to troubleshoot issues
   $ ger review 12345 --debug
@@ -392,7 +400,11 @@ Examples:
   )
   .action(async (changeId, options) => {
     try {
-      const effect = reviewCommand(changeId, options).pipe(
+      const effect = reviewCommand(changeId, {
+        comment: options.comment,
+        yes: options.yes,
+        debug: options.debug,
+      }).pipe(
         Effect.provide(AiServiceLive),
         Effect.provide(GerritApiServiceLive),
         Effect.provide(ConfigServiceLive),

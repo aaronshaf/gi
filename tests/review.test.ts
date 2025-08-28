@@ -108,13 +108,13 @@ describe('Review Command', () => {
     expect(consoleSpy.log).toHaveBeenCalledWith(
       '→ Generating overall review comment for change 12345...',
     )
-    expect(consoleSpy.log).toHaveBeenCalledWith('✓ Complete review finished for 12345')
+    expect(consoleSpy.log).toHaveBeenCalledWith('✓ Review complete for 12345')
   })
 
-  test('should handle dry-run mode', async () => {
+  test('should handle comment mode with auto-yes', async () => {
     const result = await Effect.runPromise(
       Effect.either(
-        reviewCommand('12345', { dryRun: true }).pipe(
+        reviewCommand('12345', { comment: true, yes: true }).pipe(
           Effect.provide(Layer.succeed(AiService, mockAiService)),
           Effect.provide(Layer.succeed(GerritApiService, mockApiService)),
           Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
@@ -124,9 +124,9 @@ describe('Review Command', () => {
 
     expect(result._tag).toBe('Right')
 
-    // Check that dry-run messages were shown
-    expect(consoleSpy.log).toHaveBeenCalledWith('→ [DRY RUN] Would post inline comments:')
-    expect(consoleSpy.log).toHaveBeenCalledWith('→ [DRY RUN] Would post overall review:')
+    // Check that comments were posted without prompts
+    expect(consoleSpy.log).toHaveBeenCalledWith('✓ Inline comments posted for 12345')
+    expect(consoleSpy.log).toHaveBeenCalledWith('✓ Overall review posted for 12345')
   })
 
   test('should show debug output when debug flag is set', async () => {
@@ -234,7 +234,7 @@ describe('Review Command', () => {
     )
 
     expect(result._tag).toBe('Right')
-    expect(consoleSpy.log).toHaveBeenCalledWith('→ No inline comments to post')
+    expect(consoleSpy.log).toHaveBeenCalledWith('\n→ No inline comments')
   })
 
   test('should format change data as XML for inline review', async () => {
