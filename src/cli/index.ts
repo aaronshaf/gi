@@ -1,5 +1,26 @@
 #!/usr/bin/env bun
 
+// Check Bun version requirement
+const MIN_BUN_VERSION = '1.2.0'
+const bunVersion = Bun.version
+
+function compareSemver(a: string, b: string): number {
+  const parseVersion = (v: string) => v.split('.').map((n) => parseInt(n, 10))
+  const [aMajor, aMinor = 0, aPatch = 0] = parseVersion(a)
+  const [bMajor, bMinor = 0, bPatch = 0] = parseVersion(b)
+
+  if (aMajor !== bMajor) return aMajor - bMajor
+  if (aMinor !== bMinor) return aMinor - bMinor
+  return aPatch - bPatch
+}
+
+if (compareSemver(bunVersion, MIN_BUN_VERSION) < 0) {
+  console.error(`✗ Error: Bun version ${MIN_BUN_VERSION} or higher is required`)
+  console.error(`  Current version: ${bunVersion}`)
+  console.error(`  Please upgrade Bun: bun upgrade`)
+  process.exit(1)
+}
+
 import { Command } from 'commander'
 import { Effect } from 'effect'
 import { GerritApiServiceLive } from '@/api/gerrit'
