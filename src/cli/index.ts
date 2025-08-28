@@ -14,7 +14,7 @@ import { initCommand } from './commands/init'
 import { mineCommand } from './commands/mine'
 import { openCommand } from './commands/open'
 import { reviewCommand } from './commands/review'
-import { setupCommand } from './commands/setup'
+import { setup } from './commands/setup'
 import { showCommand } from './commands/show'
 import { statusCommand } from './commands/status'
 import { workspaceCommand } from './commands/workspace'
@@ -28,16 +28,7 @@ program
   .command('setup')
   .description('Configure Gerrit credentials and AI tools')
   .action(async () => {
-    try {
-      const effect = setupCommand().pipe(
-        Effect.provide(GerritApiServiceLive),
-        Effect.provide(ConfigServiceLive),
-      )
-      await Effect.runPromise(effect)
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error))
-      process.exit(1)
-    }
+    await setup()
   })
 
 // init command (kept for backward compatibility, redirects to setup)
@@ -45,16 +36,7 @@ program
   .command('init')
   .description('Initialize Gerrit credentials (alias for setup)')
   .action(async () => {
-    try {
-      const effect = setupCommand().pipe(
-        Effect.provide(GerritApiServiceLive),
-        Effect.provide(ConfigServiceLive),
-      )
-      await Effect.runPromise(effect)
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error))
-      process.exit(1)
-    }
+    await setup()
   })
 
 // status command
@@ -374,17 +356,17 @@ It performs a two-stage review process:
 
 Requirements:
   - One of these AI tools must be installed: claude, llm, or opencode
-  - Gerrit credentials must be configured (run 'gi setup' first)
+  - Gerrit credentials must be configured (run 'ger setup' first)
 
 Examples:
   # Review a change and post comments
-  $ gi review 12345
+  $ ger review 12345
   
   # Preview what would be posted without actually posting
-  $ gi review 12345 --dry-run
+  $ ger review 12345 --dry-run
   
   # Show debug output to troubleshoot issues
-  $ gi review 12345 --debug
+  $ ger review 12345 --debug
 `,
   )
   .action(async (changeId, options) => {

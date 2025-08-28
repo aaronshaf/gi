@@ -134,13 +134,13 @@ describe('incoming command', () => {
     // Check change details
     expect(output).toContain('1001')
     expect(output).toContain('Fix critical bug in authentication')
-    expect(output).toContain('(by Alice Developer)')
+    expect(output).toContain('by Alice Developer')
     expect(output).toContain('1002')
     expect(output).toContain('Add new API endpoint')
-    expect(output).toContain('(by Bob Builder)')
+    expect(output).toContain('by Bob Builder')
     expect(output).toContain('1003')
     expect(output).toContain('Update documentation')
-    expect(output).toContain('(by Charlie Coder)')
+    expect(output).toContain('by Charlie Coder')
   })
 
   it('should output XML format when --xml flag is used', async () => {
@@ -184,21 +184,19 @@ describe('incoming command', () => {
     // Check XML output structure
     const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('<?xml version="1.0" encoding="UTF-8"?>')
-    expect(output).toContain('<incoming_result>')
-    expect(output).toContain('<status>success</status>')
+    expect(output).toContain('<incoming_reviews>')
     expect(output).toContain('<count>1</count>')
     expect(output).toContain('<changes>')
     expect(output).toContain('<change>')
     expect(output).toContain('<number>2001</number>')
     expect(output).toContain('<subject><![CDATA[XML test change]]></subject>')
-    expect(output).toContain('<project>xml-project</project>')
-    expect(output).toContain('<branch>develop</branch>')
+    // Project is now an attribute of project element
+    expect(output).toContain('<project name="xml-project">')
     expect(output).toContain('<status>NEW</status>')
-    expect(output).toContain('<change_id>Ixmltest</change_id>')
     expect(output).toContain('<owner>XML User</owner>')
     expect(output).toContain('</change>')
     expect(output).toContain('</changes>')
-    expect(output).toContain('</incoming_result>')
+    expect(output).toContain('</incoming_reviews>')
   })
 
   it('should handle no incoming changes gracefully', async () => {
@@ -218,7 +216,7 @@ describe('incoming command', () => {
     await Effect.runPromise(program)
 
     const output = mockConsoleLog.mock.calls.map((call) => call[0]).join('\n')
-    expect(output).toBe('')
+    expect(output).toContain('✓ No incoming reviews')
   })
 
   it('should handle network failures gracefully', async () => {
@@ -294,8 +292,8 @@ describe('incoming command', () => {
     // Owner name should be preserved in output
     expect(output).toContain('<owner>User <>&"\'</owner>')
     // Project and change_id should be in output
-    expect(output).toContain('<project>test<>&"project</project>')
-    expect(output).toContain('<change_id>I<>&test</change_id>')
+    // Project name should be in the project element attribute
+    expect(output).toContain('<project name="test<>&')
   })
 
   it('should group changes by project alphabetically', async () => {

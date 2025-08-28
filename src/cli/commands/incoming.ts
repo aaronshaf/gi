@@ -1,14 +1,77 @@
-import React from 'react'
 import { Effect } from 'effect'
-import { render } from 'ink'
+import { select } from '@inquirer/prompts'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
 import { type ConfigError, ConfigService } from '@/services/config'
 import { colors } from '@/utils/formatters'
-import { InteractiveIncoming } from '@/cli/components/InteractiveIncoming'
+import { getStatusIndicators } from '@/utils/status-indicators'
+import type { ChangeInfo } from '@/schemas/gerrit'
+import { sanitizeUrlSync, getOpenCommand } from '@/utils/shell-safety'
+
+const execAsync = promisify(exec)
 
 interface IncomingOptions {
   xml?: boolean
   interactive?: boolean
+}
+
+// Group changes by project for better organization
+const groupChangesByProject = (changes: readonly ChangeInfo[]) => {
+  const grouped = new Map<string, ChangeInfo[]>()
+
+  for (const change of changes) {
+    const project = change.project
+    if (!grouped.has(project)) {
+      grouped.set(project, [])
+    }
+    grouped.get(project)!.push(change)
+  }
+
+  // Sort projects alphabetically and changes by updated date
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([project, projectChanges]) => ({
+      project,
+      changes: projectChanges.sort((a, b) => {
+        const dateA = a.updated ? new Date(a.updated).getTime() : 0
+        const dateB = b.updated ? new Date(b.updated).getTime() : 0
+        return dateB - dateA
+      }),
+    }))
+}
+
+// Format change for display in inquirer
+const formatChangeChoice = (change: ChangeInfo) => {
+  const indicators = getStatusIndicators(change)
+  const statusPart = indicators ? `${indicators} ` : ''
+  const subject =
+    change.subject.length > 60 ? `${change.subject.substring(0, 57)}...` : change.subject
+
+  return {
+    name: `${statusPart}${subject} (${change._number})`,
+    value: change,
+    description: `By ${change.owner?.name || 'Unknown'} • ${change.status}`,
+  }
+}
+
+// Open change in browser
+const openInBrowser = async (gerritHost: string, changeNumber: number) => {
+  const url = `${gerritHost}/c/${changeNumber}`
+  const sanitizedUrl = sanitizeUrlSync(url)
+
+  if (!sanitizedUrl) {
+    console.error(`${colors.red}✗ Invalid URL: ${url}${colors.reset}`)
+    return
+  }
+
+  const openCmd = getOpenCommand()
+  try {
+    await execAsync(`${openCmd} "${sanitizedUrl}"`)
+    console.log(`${colors.green}✓ Opened ${changeNumber} in browser${colors.reset}`)
+  } catch (error) {
+    console.error(`${colors.red}✗ Failed to open browser: ${error}${colors.reset}`)
+  }
 }
 
 export const incomingCommand = (
@@ -23,13 +86,8 @@ export const incomingCommand = (
     )
 
     if (options.interactive) {
-      // Check if we're in a TTY environment (required for Ink)
-      if (!process.stdin.isTTY) {
-        console.error(`${colors.red}✗ Interactive mode requires a TTY terminal${colors.reset}`)
-        console.error(
-          `${colors.yellow}  Running from within Claude Code or piped input is not supported${colors.reset}`,
-        )
-        console.error(`${colors.yellow}  Try running without --interactive flag${colors.reset}`)
+      if (changes.length === 0) {
+        console.log(`${colors.yellow}No incoming reviews found${colors.reset}`)
         return
       }
 
@@ -37,117 +95,132 @@ export const incomingCommand = (
       const configService = yield* ConfigService
       const credentials = yield* configService.getCredentials
 
-      const { waitUntilExit } = render(
-        React.createElement(InteractiveIncoming, {
-          changes,
-          gerritHost: credentials.host,
-        }),
-      )
-      yield* Effect.promise(() => waitUntilExit())
+      // Group changes by project
+      const groupedChanges = groupChangesByProject(changes)
+
+      // Create choices for inquirer with project sections
+      const choices: Array<{ name: string; value: ChangeInfo | string }> = []
+
+      for (const { project, changes: projectChanges } of groupedChanges) {
+        // Add project header as separator
+        choices.push({
+          name: `\n${colors.blue}━━━ ${project} ━━━${colors.reset}`,
+          value: 'separator',
+        })
+
+        // Add changes for this project
+        for (const change of projectChanges) {
+          const formatted = formatChangeChoice(change)
+          choices.push({
+            name: formatted.name,
+            value: change,
+          })
+        }
+      }
+
+      // Add exit option
+      choices.push({
+        name: `\n${colors.gray}Exit${colors.reset}`,
+        value: 'exit',
+      })
+
+      // Interactive selection loop
+      let continueSelecting = true
+      while (continueSelecting) {
+        const selected = yield* Effect.promise(async () => {
+          return await select({
+            message: 'Select a change to open in browser:',
+            choices: choices.filter((c) => c.value !== 'separator'),
+            pageSize: 15,
+          })
+        })
+
+        if (selected === 'exit' || !selected) {
+          continueSelecting = false
+        } else if (typeof selected !== 'string') {
+          // Open the selected change
+          yield* Effect.promise(() => openInBrowser(credentials.host, selected._number))
+
+          // Ask if user wants to continue
+          const continueChoice = yield* Effect.promise(async () => {
+            return await select({
+              message: 'Continue?',
+              choices: [
+                { name: 'Select another change', value: 'continue' },
+                { name: 'Exit', value: 'exit' },
+              ],
+            })
+          })
+
+          if (continueChoice === 'exit') {
+            continueSelecting = false
+          }
+        }
+      }
+
       return
     }
 
     if (options.xml) {
-      console.log(`<?xml version="1.0" encoding="UTF-8"?>`)
-      console.log(`<incoming_result>`)
-      console.log(`  <status>success</status>`)
-      console.log(`  <count>${changes.length}</count>`)
-      console.log(`  <changes>`)
+      // XML output
+      const xmlOutput = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<incoming_reviews>',
+        `  <count>${changes.length}</count>`,
+      ]
 
-      for (const change of changes) {
-        console.log(`    <change>`)
-        console.log(`      <number>${change._number}</number>`)
-        console.log(`      <subject><![CDATA[${change.subject}]]></subject>`)
-        console.log(`      <project>${change.project}</project>`)
-        console.log(`      <branch>${change.branch}</branch>`)
-        console.log(`      <status>${change.status}</status>`)
-        console.log(`      <change_id>${change.change_id}</change_id>`)
-        if (change.owner?.name) {
-          console.log(`      <owner>${change.owner.name}</owner>`)
+      if (changes.length > 0) {
+        xmlOutput.push('  <changes>')
+
+        // Group by project for XML output too
+        const groupedChanges = groupChangesByProject(changes)
+
+        for (const { project, changes: projectChanges } of groupedChanges) {
+          xmlOutput.push(`    <project name="${project}">`)
+          for (const change of projectChanges) {
+            xmlOutput.push('      <change>')
+            xmlOutput.push(`        <number>${change._number}</number>`)
+            xmlOutput.push(`        <subject><![CDATA[${change.subject}]]></subject>`)
+            xmlOutput.push(`        <status>${change.status}</status>`)
+            xmlOutput.push(`        <owner>${change.owner?.name || 'Unknown'}</owner>`)
+            xmlOutput.push(`        <updated>${change.updated}</updated>`)
+            xmlOutput.push('      </change>')
+          }
+          xmlOutput.push('    </project>')
         }
-        if (change.updated) {
-          console.log(`      <updated>${change.updated}</updated>`)
-        }
-        console.log(`    </change>`)
+
+        xmlOutput.push('  </changes>')
       }
 
-      console.log(`  </changes>`)
-      console.log(`</incoming_result>`)
+      xmlOutput.push('</incoming_reviews>')
+      console.log(xmlOutput.join('\n'))
     } else {
-      // Human-readable output
+      // Pretty output (default)
       if (changes.length === 0) {
+        console.log(`${colors.green}✓ No incoming reviews${colors.reset}`)
         return
       }
 
-      // Group changes by project
-      const changesByProject = changes.reduce(
-        (acc, change) => {
-          if (!acc[change.project]) {
-            acc[change.project] = []
-          }
-          acc[change.project] = [...acc[change.project], change]
-          return acc
-        },
-        {} as Record<string, typeof changes>,
-      )
+      console.log(`${colors.blue}Incoming Reviews (${changes.length})${colors.reset}\n`)
 
-      // Sort projects alphabetically
-      const sortedProjects = Object.keys(changesByProject).sort()
+      // Group by project for display
+      const groupedChanges = groupChangesByProject(changes)
 
-      for (const [index, project] of sortedProjects.entries()) {
-        if (index > 0) {
-          console.log('') // Add blank line between projects
-        }
-        console.log(`${colors.blue}${project}${colors.reset}`)
+      for (const { project, changes: projectChanges } of groupedChanges) {
+        console.log(`${colors.gray}${project}${colors.reset}`)
 
-        const projectChanges = changesByProject[project]
         for (const change of projectChanges) {
-          const ownerName = change.owner?.name || change.owner?.username || 'Unknown'
-
-          // Build status indicators
-          const indicators: string[] = []
-          const indicatorChars: string[] = [] // Track visual characters for padding
-
-          if (change.labels?.['Code-Review']) {
-            const cr = change.labels['Code-Review']
-            if (cr.approved || cr.value === 2) {
-              indicators.push(`${colors.green}✓${colors.reset}`)
-              indicatorChars.push('✓')
-            } else if (cr.rejected || cr.value === -2) {
-              indicators.push(`${colors.red}✗${colors.reset}`)
-              indicatorChars.push('✗')
-            } else if (cr.recommended || cr.value === 1) {
-              indicators.push(`${colors.cyan}↑${colors.reset}`)
-              indicatorChars.push('↑')
-            } else if (cr.disliked || cr.value === -1) {
-              indicators.push(`${colors.yellow}↓${colors.reset}`)
-              indicatorChars.push('↓')
-            }
-          }
-
-          // Check for Verified label as well
-          if (change.labels?.['Verified']) {
-            const v = change.labels.Verified
-            if (v.approved || v.value === 1) {
-              if (!indicatorChars.includes('✓')) {
-                indicators.push(`${colors.green}✓${colors.reset}`)
-                indicatorChars.push('✓')
-              }
-            } else if (v.rejected || v.value === -1) {
-              indicators.push(`${colors.red}✗${colors.reset}`)
-              indicatorChars.push('✗')
-            }
-          }
-
-          // Calculate padding based on visual characters, not color codes
-          const visualWidth = indicatorChars.join('  ').length
-          const padding = ' '.repeat(Math.max(0, 8 - visualWidth))
-          const statusStr = indicators.length > 0 ? indicators.join('  ') + padding : '        '
+          const indicators = getStatusIndicators(change)
+          const statusPart = indicators ? `${indicators} ` : ''
 
           console.log(
-            `${statusStr} ${change._number}  ${change.subject} ${colors.dim}(by ${ownerName})${colors.reset}`,
+            `  ${statusPart}${colors.yellow}#${change._number}${colors.reset} ${change.subject}`,
+          )
+          console.log(
+            `    ${colors.gray}by ${change.owner?.name || 'Unknown'} • ${change.status}${colors.reset}`,
           )
         }
+        console.log() // Empty line between projects
       }
     }
   })

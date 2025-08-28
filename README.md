@@ -1,4 +1,4 @@
-# gi
+# ger
 
 Gerrit CLI built with Bun. XML output by default for LLM/automation compatibility, human-readable output with `--pretty`.
 
@@ -16,14 +16,14 @@ Gerrit CLI built with Bun. XML output by default for LLM/automation compatibilit
 # Install Bun runtime
 curl -fsSL https://bun.sh/install | bash
 
-# Install gi
-bun install -g @aaronshaf/gi
+# Install ger
+bun install -g @aaronshaf/ger
 ```
 
 ## Getting Started
 
 ```bash
-gi setup
+ger setup
 ```
 
 This will prompt for your Gerrit credentials:
@@ -39,56 +39,56 @@ Credentials are securely stored in your system keychain.
 
 ```bash
 # Check your connection status
-gi status
+ger status
 
 # View your changes
-gi mine
+ger mine
 
 # View incoming reviews
-gi incoming
+ger incoming
 
 # View a specific change
-gi show 12345
+ger show 12345
 
 # Add a comment
-gi comment 12345 -m "LGTM"
+ger comment 12345 -m "LGTM"
 
 # Get diff for review
-gi diff 12345
+ger diff 12345
 
 # AI-powered code review (requires claude, llm, or opencode CLI)
-gi review 12345
-gi review 12345 --dry-run  # Preview without posting
+ger review 12345
+ger review 12345 --dry-run  # Preview without posting
 ```
 
 ## Commands
 
 ### Connection Status
 ```bash
-gi status
-gi status --pretty
+ger status
+ger status --pretty
 ```
 
 ### Show Change Details
 ```bash
 # Complete change info with metadata, diff, inline comments, and review activity
-gi show 12345
-gi show 12345 --pretty
+ger show 12345
+ger show 12345 --pretty
 ```
 
 ### List Changes
 ```bash
 # Your changes
-gi mine
-gi mine --pretty
+ger mine
+ger mine --pretty
 
 # Incoming reviews
-gi incoming
-gi incoming --pretty
+ger incoming
+ger incoming --pretty
 
 # Workspace changes (local branch tracking)
-gi workspace
-gi workspace --pretty
+ger workspace
+ger workspace --pretty
 ```
 
 ### Comments
@@ -96,20 +96,20 @@ gi workspace --pretty
 #### Overall Comments
 ```bash
 # Using -m flag
-gi comment 12345 -m "LGTM"
+ger comment 12345 -m "LGTM"
 
 # Piping plain text (becomes overall comment message)
-echo "Review text" | gi comment 12345
-cat review.txt | gi comment 12345
+echo "Review text" | ger comment 12345
+cat review.txt | ger comment 12345
 ```
 
 #### Line-Specific Comments
 ```bash
 # Single line comment (line numbers refer to post-merge view)
-gi comment 12345 --file src/main.ts --line 42 -m "Consider error handling"
+ger comment 12345 --file src/main.ts --line 42 -m "Consider error handling"
 
 # Mark as unresolved
-gi comment 12345 --file src/main.ts --line 42 -m "Fix this" --unresolved
+ger comment 12345 --file src/main.ts --line 42 -m "Fix this" --unresolved
 ```
 
 #### Batch Line Comments (JSON Array)
@@ -143,7 +143,7 @@ echo '[
   {"file": "src/main.ts", "line": 10, "message": "Add type annotation"},
   {"file": "src/utils.ts", "line": 25, "message": "Extract to constant"},
   {"file": "src/api.ts", "line": 100, "message": "Handle error", "unresolved": true}
-]' | gi comment 12345 --batch
+]' | ger comment 12345 --batch
 
 # Comment on different sides of the diff
 # PARENT: The original code before changes
@@ -151,7 +151,7 @@ echo '[
 echo '[
   {"file": "src/Calculator.java", "line": 5, "side": "PARENT", "message": "Why was this removed?"},
   {"file": "src/Calculator.java", "line": 5, "side": "REVISION", "message": "Good improvement"}
-]' | gi comment 12345 --batch
+]' | ger comment 12345 --batch
 
 # Range comments for blocks of code
 echo '[
@@ -165,7 +165,7 @@ echo '[
     "range": {"start_line": 10, "start_character": 8, "end_line": 10, "end_character": 25},
     "message": "This variable name is confusing"
   }
-]' | gi comment 12345 --batch
+]' | ger comment 12345 --batch
 
 # Combined features: range + side + unresolved
 echo '[
@@ -182,55 +182,55 @@ echo '[
     "side": "REVISION",
     "message": "New error handling looks good, but consider extracting to a method"
   }
-]' | gi comment 12345 --batch
+]' | ger comment 12345 --batch
 
 # Load comments from a file
-cat comments.json | gi comment 12345 --batch
+cat comments.json | ger comment 12345 --batch
 ```
 
 #### View Comments
 ```bash
 # View all comments with diff context
-gi comments 12345
-gi comments 12345 --pretty
+ger comments 12345
+ger comments 12345 --pretty
 ```
 
 ### Diff
 ```bash
 # Full diff
-gi diff 12345
-gi diff 12345 --pretty
+ger diff 12345
+ger diff 12345 --pretty
 
 # List changed files
-gi diff 12345 --files-only
+ger diff 12345 --files-only
 
 # Specific file
-gi diff 12345 --file src/main.ts
+ger diff 12345 --file src/main.ts
 ```
 
 ### Change Management
 ```bash
 # Open in browser
-gi open 12345
+ger open 12345
 
 # Abandon
-gi abandon 12345
-gi abandon 12345 -m "Reason"
+ger abandon 12345
+ger abandon 12345 -m "Reason"
 ```
 
 ### AI-Powered Review
 
-The `gi review` command provides automated code review using AI tools (claude, llm, or opencode CLI).
+The `ger review` command provides automated code review using AI tools (claude, llm, or opencode CLI).
 
 ```bash
 # Full AI review with inline and overall comments
-gi review 12345
+ger review 12345
 
 # Preview what would be posted without actually posting
-gi review 12345 --dry-run
+ger review 12345 --dry-run
 
 # Show debug output including AI responses
-gi review 12345 --debug
+ger review 12345 --debug
 ```
 
 The review command performs a two-stage review process:
@@ -239,22 +239,22 @@ The review command performs a two-stage review process:
 
 Requirements:
 - One of these AI tools must be installed: `claude`, `llm`, or `opencode`
-- Gerrit credentials must be configured (`gi setup`)
+- Gerrit credentials must be configured (`ger setup`)
 
 ## LLM Integration
 
 ```bash
 # Review with AI
-gi diff 12345 | llm "Review this code"
+ger diff 12345 | llm "Review this code"
 
 # AI-generated comment
-llm "Review change 12345" | gi comment 12345
+llm "Review change 12345" | ger comment 12345
 
 # Complete change analysis
-gi show 12345 | llm "Summarize this change and its review status"
+ger show 12345 | llm "Summarize this change and its review status"
 
 # Automated approvals
-echo "LGTM" | gi comment 12345
+echo "LGTM" | ger comment 12345
 ```
 
 ## Output Formats
@@ -281,13 +281,13 @@ Message: LGTM
 To upgrade gi to the latest version:
 
 ```bash
-bun update -g @aaronshaf/gi
+bun update -g @aaronshaf/ger
 ```
 
 After upgrading, you may want to review new configuration options:
 
 ```bash
-gi setup  # Review and update your configuration
+ger setup  # Review and update your configuration
 ```
 
 ## Development
@@ -295,8 +295,8 @@ gi setup  # Review and update your configuration
 For local development:
 
 ```bash
-git clone https://github.com/aaronshaf/gi
-cd gi
+git clone https://github.com/aaronshaf/ger
+cd ger
 bun install
 
 # Run locally
