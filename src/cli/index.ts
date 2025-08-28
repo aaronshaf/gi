@@ -374,7 +374,7 @@ It performs a two-stage review process:
 
 Requirements:
   - One of these AI tools must be installed: claude, llm, or opencode
-  - Gerrit credentials must be configured (run 'gi init' first)
+  - Gerrit credentials must be configured (run 'gi setup' first)
 
 Examples:
   # Review a change and post comments
