@@ -6,6 +6,7 @@ import { GerritApiServiceLive } from '@/api/gerrit'
 import { diffCommand } from '@/cli/commands/diff'
 import { ConfigService } from '@/services/config'
 
+import { createMockConfigService } from './helpers/config-mock'
 // Create MSW server
 const server = setupServer(
   // Default handler for auth check
@@ -47,19 +48,7 @@ describe('diff command', () => {
     server.resetHandlers()
   })
 
-  const createMockConfigLayer = () =>
-    Layer.succeed(
-      ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
-      }),
-    )
+  const createMockConfigLayer = () => Layer.succeed(ConfigService, createMockConfigService())
 
   describe('unified diff output', () => {
     it('should fetch and display unified diff by default', async () => {

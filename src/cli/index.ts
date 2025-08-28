@@ -4,6 +4,7 @@ import { Command } from 'commander'
 import { Effect } from 'effect'
 import { GerritApiServiceLive } from '@/api/gerrit'
 import { ConfigServiceLive } from '@/services/config'
+import { AiServiceLive } from '@/services/ai-enhanced'
 import { abandonCommand } from './commands/abandon'
 import { commentCommand } from './commands/comment'
 import { commentsCommand } from './commands/comments'
@@ -12,21 +13,43 @@ import { incomingCommand } from './commands/incoming'
 import { initCommand } from './commands/init'
 import { mineCommand } from './commands/mine'
 import { openCommand } from './commands/open'
+import { reviewCommand } from './commands/review'
+import { setupCommand } from './commands/setup'
 import { showCommand } from './commands/show'
 import { statusCommand } from './commands/status'
 import { workspaceCommand } from './commands/workspace'
 
 const program = new Command()
 
-program.name('ger').description('LLM-centric Gerrit CLI tool').version('0.1.0')
+program.name('gi').description('LLM-centric Gerrit CLI tool').version('0.1.0')
 
-// init command
+// setup command (new primary command)
 program
-  .command('init')
-  .description('Initialize Gerrit credentials')
+  .command('setup')
+  .description('Configure Gerrit credentials and AI tools')
   .action(async () => {
     try {
-      const effect = initCommand().pipe(Effect.provide(ConfigServiceLive))
+      const effect = setupCommand().pipe(
+        Effect.provide(GerritApiServiceLive),
+        Effect.provide(ConfigServiceLive),
+      )
+      await Effect.runPromise(effect)
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error))
+      process.exit(1)
+    }
+  })
+
+// init command (kept for backward compatibility, redirects to setup)
+program
+  .command('init')
+  .description('Initialize Gerrit credentials (alias for setup)')
+  .action(async () => {
+    try {
+      const effect = setupCommand().pipe(
+        Effect.provide(GerritApiServiceLive),
+        Effect.provide(ConfigServiceLive),
+      )
       await Effect.runPromise(effect)
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : String(error))
@@ -330,6 +353,50 @@ program
       } else {
         console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       }
+      process.exit(1)
+    }
+  })
+
+// review command
+program
+  .command('review <change-id>')
+  .description('AI-powered code review that posts inline and overall comments')
+  .option('--debug', 'Show debug output including AI responses')
+  .option('--dry-run', 'Preview comments without posting them')
+  .addHelpText(
+    'after',
+    `
+This command uses AI (claude, llm, or opencode CLI) to review a Gerrit change.
+It performs a two-stage review process:
+
+1. Generates inline comments for specific code issues
+2. Generates an overall review comment
+
+Requirements:
+  - One of these AI tools must be installed: claude, llm, or opencode
+  - Gerrit credentials must be configured (run 'gi init' first)
+
+Examples:
+  # Review a change and post comments
+  $ gi review 12345
+  
+  # Preview what would be posted without actually posting
+  $ gi review 12345 --dry-run
+  
+  # Show debug output to troubleshoot issues
+  $ gi review 12345 --debug
+`,
+  )
+  .action(async (changeId, options) => {
+    try {
+      const effect = reviewCommand(changeId, options).pipe(
+        Effect.provide(AiServiceLive),
+        Effect.provide(GerritApiServiceLive),
+        Effect.provide(ConfigServiceLive),
+      )
+      await Effect.runPromise(effect)
+    } catch (error) {
+      console.error('✗ Error:', error instanceof Error ? error.message : String(error))
       process.exit(1)
     }
   })

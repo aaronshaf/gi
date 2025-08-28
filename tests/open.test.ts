@@ -7,6 +7,7 @@ import { GerritApiServiceLive } from '@/api/gerrit'
 import { openCommand } from '@/cli/commands/open'
 import { ConfigService } from '@/services/config'
 
+import { createMockConfigService } from './helpers/config-mock'
 // Mock child_process.exec
 const mockExec = mock()
 mock.module('node:child_process', () => ({
@@ -60,14 +61,10 @@ describe('open command', () => {
 
     const mockConfigLayer = Layer.succeed(
       ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
+      createMockConfigService({
+        host: 'https://gerrit.example.com',
+        username: 'testuser',
+        password: 'testpass',
       }),
     )
 
@@ -120,14 +117,10 @@ describe('open command', () => {
 
     const mockConfigLayer = Layer.succeed(
       ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
+      createMockConfigService({
+        host: 'https://gerrit.example.com',
+        username: 'testuser',
+        password: 'testpass',
       }),
     )
 
@@ -154,14 +147,10 @@ describe('open command', () => {
   test('should handle invalid change ID', async () => {
     const mockConfigLayer = Layer.succeed(
       ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
+      createMockConfigService({
+        host: 'https://gerrit.example.com',
+        username: 'testuser',
+        password: 'testpass',
       }),
     )
 
@@ -183,14 +172,10 @@ describe('open command', () => {
 
     const mockConfigLayer = Layer.succeed(
       ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
+      createMockConfigService({
+        host: 'https://gerrit.example.com',
+        username: 'testuser',
+        password: 'testpass',
       }),
     )
 
@@ -229,14 +214,10 @@ describe('open command', () => {
 
     const mockConfigLayer = Layer.succeed(
       ConfigService,
-      ConfigService.of({
-        getCredentials: Effect.succeed({
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        }),
-        saveCredentials: () => Effect.succeed(undefined),
-        deleteCredentials: Effect.succeed(undefined),
+      createMockConfigService({
+        host: 'https://gerrit.example.com',
+        username: 'testuser',
+        password: 'testpass',
       }),
     )
 

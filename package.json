@@ -1,11 +1,19 @@
 {
-  "name": "ger",
+  "name": "@aaronshaf/gi",
   "version": "0.1.0",
   "module": "index.ts",
   "type": "module",
   "bin": {
-    "ger": "./bin/ger"
+    "gi": "./bin/gi"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aaronshaf/gi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aaronshaf/gi/issues"
+  },
+  "homepage": "https://github.com/aaronshaf/gi#readme",
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
     "@types/node": "^24.3.0",
@@ -38,8 +46,6 @@
   "scripts": {
     "prepare": "husky",
     "dev": "bun run src/cli/index.ts",
-    "build": "bun build src/cli/index.ts --compile --outfile=bin/ger-binary",
-    "build:bundle": "bun build src/cli/index.ts --outdir=dist --target=bun",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:coverage:check": "bun scripts/check-coverage.ts",
