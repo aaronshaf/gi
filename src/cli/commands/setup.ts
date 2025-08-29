@@ -7,7 +7,8 @@ import {
   type ConfigServiceImpl,
 } from '@/services/config'
 import type { GerritCredentials } from '@/schemas/gerrit'
-import type { AiConfig, AppConfig } from '@/schemas/config'
+import { AppConfig } from '@/schemas/config'
+import { Schema } from '@effect/schema'
 import { input, password } from '@inquirer/prompts'
 import { spawn } from 'node:child_process'
 
@@ -114,13 +115,13 @@ const setupEffect = (configService: ConfigServiceImpl) =>
               // Gerrit Host URL
               const host = await input({
                 message: 'Gerrit Host URL (e.g., https://gerrit.example.com)',
-                default: existingConfig?.credentials.host,
+                default: existingConfig?.host,
               })
 
               // Username
               const username = await input({
                 message: 'Username (your Gerrit username)',
-                default: existingConfig?.credentials.username,
+                default: existingConfig?.username,
               })
 
               // Password - similar to ji's pattern
@@ -128,7 +129,7 @@ const setupEffect = (configService: ConfigServiceImpl) =>
                 (await password({
                   message: 'HTTP Password (generated from Gerrit settings)',
                 })) ||
-                existingConfig?.credentials.password ||
+                existingConfig?.password ||
                 ''
 
               console.log('')
@@ -141,7 +142,7 @@ const setupEffect = (configService: ConfigServiceImpl) =>
 
               // Get default suggestion
               const defaultCommand =
-                existingConfig?.ai?.tool ||
+                existingConfig?.aiTool ||
                 (availableTools.includes('claude') ? 'claude' : availableTools[0]) ||
                 ''
 
@@ -154,25 +155,19 @@ const setupEffect = (configService: ConfigServiceImpl) =>
                 default: defaultCommand || 'claude',
               })
 
-              const credentials: GerritCredentials = {
+              // Build flat config
+              const configData = {
                 host: host.trim().replace(/\/$/, ''), // Remove trailing slash
                 username: username.trim(),
                 password: passwordValue,
-              }
-
-              // Build AI config
-              const aiConfig: AiConfig = {
                 ...(aiToolCommand && {
-                  tool: aiToolCommand as 'claude' | 'llm' | 'opencode' | 'gemini',
+                  aiTool: aiToolCommand,
                 }),
-                autoDetect: !aiToolCommand,
+                aiAutoDetect: !aiToolCommand,
               }
 
-              // Build full config
-              const fullConfig: AppConfig = {
-                credentials,
-                ai: aiConfig,
-              }
+              // Validate config using Schema instead of type assertion
+              const fullConfig = Schema.decodeUnknownSync(AppConfig)(configData)
 
               return fullConfig
             },
@@ -192,7 +187,11 @@ const setupEffect = (configService: ConfigServiceImpl) =>
     Effect.tap(() => Console.log('\nVerifying credentials...')),
     Effect.flatMap((config) =>
       pipe(
-        verifyCredentials(config.credentials),
+        verifyCredentials({
+          host: config.host,
+          username: config.username,
+          password: config.password,
+        }),
         Effect.map(() => config),
       ),
     ),
@@ -224,7 +223,7 @@ export async function setup() {
 
   try {
     await Effect.runPromise(program)
-  } catch (_error) {
+  } catch {
     // Error already handled and displayed
     process.exit(1)
   }
