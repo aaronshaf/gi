@@ -42,15 +42,22 @@ describe('mine command', () => {
     ]
 
     const mockApi = GerritApiService.of({
-      listChanges: (query: string) => {
+      listChanges: (query?: string) => {
         expect(query).toBe('owner:self status:open')
         return Effect.succeed(mockChanges)
       },
       getChange: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeComments: () => Effect.fail(new Error('Not implemented') as ApiError),
       postReview: () => Effect.fail(new Error('Not implemented') as ApiError),
       abandonChange: () => Effect.fail(new Error('Not implemented') as ApiError),
+      testConnection: Effect.fail(new Error('Not implemented') as ApiError),
+      getRevision: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFiles: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileContent: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getPatch: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getComments: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getMessages: () => Effect.fail(new Error('Not implemented') as ApiError),
     })
 
     await Effect.runPromise(
@@ -74,15 +81,22 @@ describe('mine command', () => {
     ]
 
     const mockApi = GerritApiService.of({
-      listChanges: (query: string) => {
+      listChanges: (query?: string) => {
         expect(query).toBe('owner:self status:open')
         return Effect.succeed(mockChanges)
       },
       getChange: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeComments: () => Effect.fail(new Error('Not implemented') as ApiError),
       postReview: () => Effect.fail(new Error('Not implemented') as ApiError),
       abandonChange: () => Effect.fail(new Error('Not implemented') as ApiError),
+      testConnection: Effect.fail(new Error('Not implemented') as ApiError),
+      getRevision: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFiles: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileContent: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getPatch: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getComments: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getMessages: () => Effect.fail(new Error('Not implemented') as ApiError),
     })
 
     await Effect.runPromise(
@@ -106,10 +120,17 @@ describe('mine command', () => {
     const mockApi = GerritApiService.of({
       listChanges: () => Effect.succeed([]),
       getChange: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeComments: () => Effect.fail(new Error('Not implemented') as ApiError),
       postReview: () => Effect.fail(new Error('Not implemented') as ApiError),
       abandonChange: () => Effect.fail(new Error('Not implemented') as ApiError),
+      testConnection: Effect.fail(new Error('Not implemented') as ApiError),
+      getRevision: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFiles: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileContent: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getPatch: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getComments: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getMessages: () => Effect.fail(new Error('Not implemented') as ApiError),
     })
 
     await Effect.runPromise(
@@ -124,10 +145,17 @@ describe('mine command', () => {
     const mockApi = GerritApiService.of({
       listChanges: () => Effect.succeed([]),
       getChange: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeComments: () => Effect.fail(new Error('Not implemented') as ApiError),
       postReview: () => Effect.fail(new Error('Not implemented') as ApiError),
       abandonChange: () => Effect.fail(new Error('Not implemented') as ApiError),
+      testConnection: Effect.fail(new Error('Not implemented') as ApiError),
+      getRevision: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFiles: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileContent: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getPatch: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getComments: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getMessages: () => Effect.fail(new Error('Not implemented') as ApiError),
     })
 
     await Effect.runPromise(
@@ -144,10 +172,17 @@ describe('mine command', () => {
     const mockApi = GerritApiService.of({
       listChanges: () => Effect.fail(new Error('Network error') as ApiError),
       getChange: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeComments: () => Effect.fail(new Error('Not implemented') as ApiError),
       postReview: () => Effect.fail(new Error('Not implemented') as ApiError),
       abandonChange: () => Effect.fail(new Error('Not implemented') as ApiError),
+      testConnection: Effect.fail(new Error('Not implemented') as ApiError),
+      getRevision: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFiles: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileContent: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getPatch: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getComments: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getMessages: () => Effect.fail(new Error('Not implemented') as ApiError),
     })
 
     const result = await Effect.runPromise(
@@ -166,10 +201,17 @@ describe('mine command', () => {
     const mockApi = GerritApiService.of({
       listChanges: () => Effect.fail(new Error('API error') as ApiError),
       getChange: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeComments: () => Effect.fail(new Error('Not implemented') as ApiError),
       postReview: () => Effect.fail(new Error('Not implemented') as ApiError),
       abandonChange: () => Effect.fail(new Error('Not implemented') as ApiError),
+      testConnection: Effect.fail(new Error('Not implemented') as ApiError),
+      getRevision: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFiles: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileContent: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getPatch: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getComments: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getMessages: () => Effect.fail(new Error('Not implemented') as ApiError),
     })
 
     const result = await Effect.runPromise(
@@ -198,10 +240,17 @@ describe('mine command', () => {
     const mockApi = GerritApiService.of({
       listChanges: () => Effect.succeed(mockChanges),
       getChange: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeComments: () => Effect.fail(new Error('Not implemented') as ApiError),
       postReview: () => Effect.fail(new Error('Not implemented') as ApiError),
       abandonChange: () => Effect.fail(new Error('Not implemented') as ApiError),
+      testConnection: Effect.fail(new Error('Not implemented') as ApiError),
+      getRevision: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFiles: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileContent: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getPatch: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getComments: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getMessages: () => Effect.fail(new Error('Not implemented') as ApiError),
     })
 
     await Effect.runPromise(
@@ -242,10 +291,17 @@ describe('mine command', () => {
     const mockApi = GerritApiService.of({
       listChanges: () => Effect.succeed(mockChanges),
       getChange: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
-      getChangeComments: () => Effect.fail(new Error('Not implemented') as ApiError),
       postReview: () => Effect.fail(new Error('Not implemented') as ApiError),
       abandonChange: () => Effect.fail(new Error('Not implemented') as ApiError),
+      testConnection: Effect.fail(new Error('Not implemented') as ApiError),
+      getRevision: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFiles: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getFileContent: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getPatch: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getDiff: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getComments: () => Effect.fail(new Error('Not implemented') as ApiError),
+      getMessages: () => Effect.fail(new Error('Not implemented') as ApiError),
     })
 
     await Effect.runPromise(

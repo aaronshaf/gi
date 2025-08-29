@@ -54,12 +54,12 @@ describe('Config Service Simple Tests', () => {
   describe('Schema validation', () => {
     test('should validate valid credentials schema', () => {
       const validCredentials: GerritCredentials = {
-        url: 'https://gerrit.example.com',
+        host: 'https://gerrit.example.com',
         username: 'testuser',
         password: 'testpass',
       }
 
-      expect(validCredentials.url).toBe('https://gerrit.example.com')
+      expect(validCredentials.host).toBe('https://gerrit.example.com')
       expect(validCredentials.username).toBe('testuser')
       expect(validCredentials.password).toBe('testpass')
     })
@@ -85,7 +85,7 @@ describe('Config Service Simple Tests', () => {
     test('should validate full app config schema', () => {
       const validAppConfig: AppConfig = {
         credentials: {
-          url: 'https://gerrit.example.com',
+          host: 'https://gerrit.example.com',
           username: 'testuser',
           password: 'testpass',
         },
@@ -94,7 +94,7 @@ describe('Config Service Simple Tests', () => {
         },
       }
 
-      expect(validAppConfig.credentials.url).toBe('https://gerrit.example.com')
+      expect(validAppConfig.credentials.host).toBe('https://gerrit.example.com')
       expect(validAppConfig.ai.autoDetect).toBe(true)
     })
   })
