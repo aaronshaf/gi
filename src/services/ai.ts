@@ -1,8 +1,6 @@
 import { Context, Data, Effect, Layer } from 'effect'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import * as os from 'node:os'
-import * as path from 'node:path'
 
 const execAsync = promisify(exec)
 

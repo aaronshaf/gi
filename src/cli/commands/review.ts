@@ -276,8 +276,6 @@ const promptUser = (message: string): Effect.Effect<boolean, never> =>
 export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
   Effect.gen(function* () {
     const aiService = yield* AiService
-    const gerritApi = yield* GerritApiService
-    const configService = yield* ConfigService
 
     // Check for AI tool availability first
     yield* Console.log('→ Checking for AI tool availability...')
