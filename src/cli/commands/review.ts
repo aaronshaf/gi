@@ -1,4 +1,4 @@
-import { Effect, pipe } from 'effect'
+import { Effect, pipe, Schema } from 'effect'
 import { AiService } from '@/services/ai'
 import { commentCommandWithInput } from './comment'
 import { Console } from 'effect'
@@ -7,7 +7,8 @@ import type { CommentInfo } from '@/schemas/gerrit'
 import { sanitizeCDATA, escapeXML } from '@/utils/shell-safety'
 import { formatDiffPretty } from '@/utils/diff-formatters'
 import { formatDate } from '@/utils/formatters'
-import * as fs from 'node:fs'
+import * as fs from 'node:fs/promises'
+import * as fsSync from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,19 +19,31 @@ import * as readline from 'node:readline'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// Load default prompts from .md files
-const DEFAULT_REVIEW_PROMPT = fs.readFileSync(
-  path.join(__dirname, '../../prompts/default-review.md'),
-  'utf8',
-)
-const INLINE_REVIEW_SYSTEM_PROMPT = fs.readFileSync(
-  path.join(__dirname, '../../prompts/system-inline-review.md'),
-  'utf8',
-)
-const OVERALL_REVIEW_SYSTEM_PROMPT = fs.readFileSync(
-  path.join(__dirname, '../../prompts/system-overall-review.md'),
-  'utf8',
-)
+// Effect-based file reading helper
+const readFileEffect = (filePath: string): Effect.Effect<string, Error, never> =>
+  Effect.tryPromise({
+    try: () => fs.readFile(filePath, 'utf8'),
+    catch: (error) => new Error(`Failed to read file ${filePath}: ${error}`),
+  })
+
+// Load default prompts from .md files using Effect
+const loadDefaultPrompts = Effect.gen(function* () {
+  const defaultReviewPrompt = yield* readFileEffect(
+    path.join(__dirname, '../../prompts/default-review.md'),
+  )
+  const inlineReviewSystemPrompt = yield* readFileEffect(
+    path.join(__dirname, '../../prompts/system-inline-review.md'),
+  )
+  const overallReviewSystemPrompt = yield* readFileEffect(
+    path.join(__dirname, '../../prompts/system-overall-review.md'),
+  )
+
+  return {
+    defaultReviewPrompt,
+    inlineReviewSystemPrompt,
+    overallReviewSystemPrompt,
+  }
+})
 
 // Helper to expand tilde in file paths
 const expandTilde = (filePath: string): string => {
@@ -40,18 +53,27 @@ const expandTilde = (filePath: string): string => {
   return filePath
 }
 
-// Helper to read prompt file
-const readPromptFile = (filePath: string): string | null => {
-  try {
+// Helper to read prompt file using Effect
+const readPromptFileEffect = (filePath: string): Effect.Effect<string | null, never, never> =>
+  Effect.gen(function* () {
     const expanded = expandTilde(filePath)
-    if (fs.existsSync(expanded)) {
-      return fs.readFileSync(expanded, 'utf8')
+
+    // Check if file exists using sync method since Effect doesn't have a convenient async exists check
+    const exists = yield* Effect.try(() => fsSync.existsSync(expanded)).pipe(
+      Effect.catchAll(() => Effect.succeed(false)),
+    )
+
+    if (!exists) {
+      return null
     }
-  } catch {
-    // Ignore errors
-  }
-  return null
-}
+
+    // Read file using async Effect
+    const content = yield* readFileEffect(expanded).pipe(
+      Effect.catchAll(() => Effect.succeed(null)),
+    )
+
+    return content
+  })
 
 interface ReviewOptions {
   debug?: boolean
@@ -61,18 +83,100 @@ interface ReviewOptions {
   prompt?: string
 }
 
-interface InlineComment {
-  file: string
-  line?: number
-  message: string
-  side?: string
-  range?: {
-    start_line: number
-    end_line: number
-    start_character?: number
-    end_character?: number
-  }
-}
+// Schema for validating AI-generated inline comments
+const InlineCommentSchema = Schema.Struct({
+  file: Schema.String,
+  message: Schema.String,
+  side: Schema.optional(Schema.String),
+  line: Schema.optional(Schema.Number),
+  range: Schema.optional(
+    Schema.Struct({
+      start_line: Schema.Number,
+      end_line: Schema.Number,
+      start_character: Schema.optional(Schema.Number),
+      end_character: Schema.optional(Schema.Number),
+    }),
+  ),
+})
+
+interface InlineComment extends Schema.Schema.Type<typeof InlineCommentSchema> {}
+
+// Helper to validate and fix AI-generated inline comments
+const validateAndFixInlineComments = (
+  rawComments: unknown[],
+  availableFiles: string[],
+): Effect.Effect<InlineComment[], never, never> =>
+  Effect.gen(function* () {
+    const validComments: InlineComment[] = []
+
+    for (const rawComment of rawComments) {
+      // Validate comment structure using Effect Schema
+      const parseResult = yield* Schema.decodeUnknown(InlineCommentSchema)(rawComment).pipe(
+        Effect.catchTag('ParseError', (parseError) =>
+          Effect.gen(function* () {
+            yield* Console.warn('Skipping comment with invalid structure')
+            return yield* Effect.succeed(null)
+          }),
+        ),
+      )
+
+      if (!parseResult) {
+        continue
+      }
+
+      const comment = parseResult
+
+      // Skip comments with invalid line formats (like ":range")
+      if (!comment.line && !comment.range) {
+        yield* Console.warn('Skipping comment with invalid line format')
+        continue
+      }
+
+      // Try to find the correct file path
+      let correctFilePath = comment.file
+
+      // If the file path doesn't exist exactly, try to find a match
+      if (!availableFiles.includes(comment.file)) {
+        // Look for files that end with the provided path (secure path matching)
+        const matchingFiles = availableFiles.filter((file) => {
+          const normalizedFile = file.replace(/\\/g, '/')
+          const normalizedComment = comment.file.replace(/\\/g, '/')
+
+          // Only match if the comment path is a suffix of the file path with proper boundaries
+          return (
+            normalizedFile.endsWith(normalizedComment) &&
+            (normalizedFile === normalizedComment ||
+              normalizedFile.endsWith(`/${normalizedComment}`))
+          )
+        })
+
+        if (matchingFiles.length === 1) {
+          correctFilePath = matchingFiles[0]
+          yield* Console.log(`Fixed file path: ${comment.file} -> ${correctFilePath}`)
+        } else if (matchingFiles.length > 1) {
+          // Multiple matches, try to pick the most likely one (exact suffix match)
+          const exactMatch = matchingFiles.find((file) => file.endsWith(`/${comment.file}`))
+          if (exactMatch) {
+            correctFilePath = exactMatch
+            yield* Console.log(
+              `Fixed file path (exact match): ${comment.file} -> ${correctFilePath}`,
+            )
+          } else {
+            yield* Console.warn(`Multiple file matches for ${comment.file}. Skipping comment.`)
+            continue
+          }
+        } else {
+          yield* Console.warn(`File not found in change: ${comment.file}. Skipping comment.`)
+          continue
+        }
+      }
+
+      // Update the comment with the correct file path and add to valid comments
+      validComments.push({ ...comment, file: correctFilePath })
+    }
+
+    return validComments
+  })
 
 // Helper to get change data and format as XML string
 const getChangeDataAsXml = (changeId: string): Effect.Effect<string, ApiError, GerritApiService> =>
@@ -276,6 +380,9 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
   Effect.gen(function* () {
     const aiService = yield* AiService
 
+    // Load default prompts first
+    const prompts = yield* loadDefaultPrompts
+
     // Check for AI tool availability first
     yield* Console.log('→ Checking for AI tool availability...')
     const aiTool = yield* aiService
@@ -284,10 +391,10 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
     yield* Console.log(`✓ Found AI tool: ${aiTool}`)
 
     // Load custom review prompt if provided via --prompt option
-    let userReviewPrompt = DEFAULT_REVIEW_PROMPT
+    let userReviewPrompt = prompts.defaultReviewPrompt
 
     if (options.prompt) {
-      const customPrompt = readPromptFile(options.prompt)
+      const customPrompt = yield* readPromptFileEffect(options.prompt)
       if (customPrompt) {
         userReviewPrompt = customPrompt
         yield* Console.log(`✓ Using custom review prompt from ${options.prompt}`)
@@ -298,8 +405,8 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
     }
 
     // Combine user prompt with system prompts for each stage
-    const inlinePrompt = `${userReviewPrompt}\n\n${INLINE_REVIEW_SYSTEM_PROMPT}`
-    const overallPrompt = `${userReviewPrompt}\n\n${OVERALL_REVIEW_SYSTEM_PROMPT}`
+    const inlinePrompt = `${userReviewPrompt}\n\n${prompts.inlineReviewSystemPrompt}`
+    const overallPrompt = `${userReviewPrompt}\n\n${prompts.overallReviewSystemPrompt}`
 
     yield* Console.log(`→ Fetching change data for ${changeId}...`)
 
@@ -332,19 +439,42 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
       yield* Console.log(`[DEBUG] Inline response:\n${inlineResponse}`)
     }
 
-    // Parse JSON array from response
-    let inlineComments: InlineComment[]
-    try {
-      inlineComments = JSON.parse(inlineResponse) as InlineComment[]
-      if (!Array.isArray(inlineComments)) {
-        throw new Error('Response is not an array')
-      }
-    } catch (error: unknown) {
-      yield* Console.error(`✗ Failed to parse inline comments JSON: ${error}`)
-      if (!options.debug) {
-        yield* Console.error('Run with --debug to see raw AI output')
-      }
+    // Parse JSON array from response using Effect
+    const inlineCommentsArray = yield* Effect.tryPromise({
+      try: () => Promise.resolve(JSON.parse(inlineResponse)),
+      catch: (error) => new Error(`Invalid JSON response: ${error}`),
+    }).pipe(
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          yield* Console.error(`✗ Failed to parse inline comments JSON: ${error}`)
+          if (!options.debug) {
+            yield* Console.error('Run with --debug to see raw AI output')
+          }
+          return yield* Effect.fail(error)
+        }),
+      ),
+    )
+
+    // Validate that the response is an array
+    if (!Array.isArray(inlineCommentsArray)) {
+      yield* Console.error('✗ AI response is not an array of comments')
       return yield* Effect.fail(new Error('Invalid inline comments format'))
+    }
+
+    // Get available files for validation
+    const gerritApi = yield* GerritApiService
+    const files = yield* gerritApi.getFiles(changeId)
+    const availableFiles = Object.keys(files)
+
+    // Validate and fix inline comments
+    const originalCount = inlineCommentsArray.length
+    const inlineComments = yield* validateAndFixInlineComments(inlineCommentsArray, availableFiles)
+    const validCount = inlineComments.length
+
+    if (originalCount > validCount) {
+      yield* Console.log(
+        `→ Filtered ${originalCount - validCount} invalid comments, ${validCount} remain`,
+      )
     }
 
     // If not in comment mode, just output the inline comments
@@ -374,22 +504,26 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
           : yield* promptUser('\nPost these inline comments to Gerrit?')
 
         if (shouldPost) {
-          // Post inline comments using the new direct input method
-          yield* pipe(
-            commentCommandWithInput(changeId, JSON.stringify(inlineComments), { batch: true }),
-            Effect.catchAll((error) =>
-              Effect.gen(function* () {
-                yield* Console.error(`✗ Failed to post inline comments: ${error}`)
-                return yield* Effect.fail(error)
-              }),
-            ),
-          )
-          yield* Console.log(`✓ Inline comments posted for ${changeId}`)
+          if (inlineComments.length === 0) {
+            yield* Console.log('→ No valid comments to post after validation')
+          } else {
+            // Post inline comments using the new direct input method
+            yield* pipe(
+              commentCommandWithInput(changeId, JSON.stringify(inlineComments), { batch: true }),
+              Effect.catchAll((error) =>
+                Effect.gen(function* () {
+                  yield* Console.error(`✗ Failed to post inline comments: ${error}`)
+                  return yield* Effect.fail(error)
+                }),
+              ),
+            )
+            yield* Console.log(`✓ Inline comments posted for ${changeId}`)
+          }
         } else {
           yield* Console.log('→ Inline comments not posted')
         }
       } else {
-        yield* Console.log('\n→ No inline comments to post')
+        yield* Console.log('\n→ No valid inline comments to post')
       }
     }
 
