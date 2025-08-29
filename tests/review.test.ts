@@ -24,8 +24,8 @@ describe('Review Command', () => {
       extractResponseTag: (output: string) => Effect.succeed(output),
       runPrompt: (prompt: string, input: string) => {
         if (
-          prompt.includes('INLINE_REVIEW_SYSTEM_PROMPT') ||
-          prompt.includes('Example Output (THIS IS THE ONLY ACCEPTABLE FORMAT)')
+          prompt.includes('JSON Structure for Inline Comments') ||
+          prompt.includes('Priority Guidelines for Inline Comments')
         ) {
           // Return mock inline comments
           return Effect.succeed(
@@ -40,7 +40,7 @@ describe('Review Command', () => {
         } else {
           // Return mock overall review
           return Effect.succeed(
-            '🤖 Claude Code\n\nOVERALL ASSESSMENT\n\nThe code looks good overall.',
+            '🤖 Code Review\n\nOVERALL ASSESSMENT\n\nThe code looks good overall.',
           )
         }
       },
@@ -212,13 +212,13 @@ describe('Review Command', () => {
       extractResponseTag: (output: string) => Effect.succeed(output),
       runPrompt: (prompt: string, input: string) => {
         if (
-          prompt.includes('INLINE_REVIEW_SYSTEM_PROMPT') ||
-          prompt.includes('Example Output (THIS IS THE ONLY ACCEPTABLE FORMAT)')
+          prompt.includes('JSON Structure for Inline Comments') ||
+          prompt.includes('Priority Guidelines for Inline Comments')
         ) {
           // Return empty array
           return Effect.succeed('[]')
         } else {
-          return Effect.succeed('🤖 Claude Code\n\nOVERALL ASSESSMENT\n\nNo issues found.')
+          return Effect.succeed('🤖 Code Review\n\nOVERALL ASSESSMENT\n\nNo issues found.')
         }
       },
     }
@@ -245,12 +245,12 @@ describe('Review Command', () => {
       extractResponseTag: (output: string) => Effect.succeed(output),
       runPrompt: (prompt: string, input: string) => {
         // Check if this is the inline review prompt (which gets XML data)
-        // Inline prompt contains "JSON array" in its system prompt
-        if (prompt.includes('JSON array wrapped in response tags')) {
+        // Inline prompt contains "JSON Structure for Inline Comments" in its system prompt
+        if (prompt.includes('JSON Structure for Inline Comments')) {
           capturedXmlData = input
           return Effect.succeed('[]')
         } else {
-          return Effect.succeed('🤖 Claude Code\n\nOVERALL ASSESSMENT\n\nLooks good.')
+          return Effect.succeed('🤖 Code Review\n\nOVERALL ASSESSMENT\n\nLooks good.')
         }
       },
     }
@@ -329,18 +329,17 @@ describe('Review Command', () => {
       runPrompt: (prompt: string, input: string) => {
         // Check if this is the inline review prompt (which gets XML) or overall (which gets pretty text)
         if (
-          prompt.includes('Example Output (THIS IS THE ONLY ACCEPTABLE FORMAT)') &&
-          prompt.includes('<response>') &&
-          prompt.includes('JSON')
+          prompt.includes('JSON Structure for Inline Comments') ||
+          prompt.includes('Priority Guidelines for Inline Comments')
         ) {
           // This is inline review with XML data
           return Effect.succeed('[]')
-        } else if (prompt.includes('OVERALL ASSESSMENT')) {
+        } else if (prompt.includes('Review Structure and Formatting')) {
           // This is overall review with pretty text data
           capturedPrettyData = input
-          return Effect.succeed('🤖 Claude Code\n\nOVERALL ASSESSMENT\n\nLooks good.')
+          return Effect.succeed('🤖 Code Review\n\nOVERALL ASSESSMENT\n\nLooks good.')
         } else {
-          return Effect.succeed('🤖 Claude Code\n\nOVERALL ASSESSMENT\n\nLooks good.')
+          return Effect.succeed('🤖 Code Review\n\nOVERALL ASSESSMENT\n\nLooks good.')
         }
       },
     }
