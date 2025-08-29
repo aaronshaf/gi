@@ -37,13 +37,8 @@ class TestConfigService {
 
         // Check if this is the old nested format and migrate if needed
         if (parsed && typeof parsed === 'object' && 'credentials' in parsed) {
-          // Migrate from nested format to flat format
-          const migrated = migrateFromNestedConfig(
-            parsed as {
-              credentials: { host: string; username: string; password: string }
-              ai?: { tool?: 'claude' | 'llm' | 'opencode' | 'gemini'; autoDetect?: boolean }
-            },
-          )
+          // Migrate from nested format to flat format with validation
+          const migrated = migrateFromNestedConfig(parsed)
 
           // Save the migrated config immediately
           try {

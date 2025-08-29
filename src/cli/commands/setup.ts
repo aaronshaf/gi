@@ -7,7 +7,8 @@ import {
   type ConfigServiceImpl,
 } from '@/services/config'
 import type { GerritCredentials } from '@/schemas/gerrit'
-import type { AppConfig } from '@/schemas/config'
+import { AppConfig } from '@/schemas/config'
+import { Schema } from '@effect/schema'
 import { input, password } from '@inquirer/prompts'
 import { spawn } from 'node:child_process'
 
@@ -155,15 +156,18 @@ const setupEffect = (configService: ConfigServiceImpl) =>
               })
 
               // Build flat config
-              const fullConfig: AppConfig = {
+              const configData = {
                 host: host.trim().replace(/\/$/, ''), // Remove trailing slash
                 username: username.trim(),
                 password: passwordValue,
                 ...(aiToolCommand && {
-                  aiTool: aiToolCommand as 'claude' | 'llm' | 'opencode' | 'gemini',
+                  aiTool: aiToolCommand,
                 }),
                 aiAutoDetect: !aiToolCommand,
               }
+
+              // Validate config using Schema instead of type assertion
+              const fullConfig = Schema.decodeUnknownSync(AppConfig)(configData)
 
               return fullConfig
             },

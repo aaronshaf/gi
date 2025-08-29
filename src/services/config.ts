@@ -37,19 +37,16 @@ const readFileConfig = (): unknown | null => {
 
       // Check if this is the old nested format and migrate if needed
       if (parsed && typeof parsed === 'object' && 'credentials' in parsed) {
-        // Migrate from nested format to flat format
-        const migrated = migrateFromNestedConfig(
-          parsed as {
-            credentials: { host: string; username: string; password: string }
-            ai?: { tool?: 'claude' | 'llm' | 'opencode' | 'gemini'; autoDetect?: boolean }
-          },
-        )
+        // Migrate from nested format to flat format with validation
+        const migrated = migrateFromNestedConfig(parsed)
 
         // Save the migrated config immediately
         try {
           writeFileConfig(migrated)
-        } catch {
-          // If write fails, still return the migrated config
+        } catch (error) {
+          // Log migration write failure but continue to return migrated config
+          console.warn('Warning: Failed to save migrated config to disk:', error)
+          // Config migration succeeded in memory, user can still proceed
         }
 
         return migrated
@@ -137,15 +134,17 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
 
         // Get existing config or create new one
         const existingConfig = yield* getFullConfig.pipe(
-          Effect.orElseSucceed(
-            () =>
-              ({
-                host: validatedCredentials.host,
-                username: validatedCredentials.username,
-                password: validatedCredentials.password,
-                aiAutoDetect: true,
-              }) as AppConfig,
-          ),
+          Effect.orElseSucceed(() => {
+            // Create default config using Schema validation instead of type assertion
+            const defaultConfig = {
+              host: validatedCredentials.host,
+              username: validatedCredentials.username,
+              password: validatedCredentials.password,
+              aiAutoDetect: true,
+            }
+            // Validate the default config structure
+            return Schema.decodeUnknownSync(AppConfig)(defaultConfig)
+          }),
         )
 
         // Update credentials in flat config

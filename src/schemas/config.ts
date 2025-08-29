@@ -36,14 +36,40 @@ export const aiConfigFromFlat = (config: AppConfig): AiConfig => ({
   autoDetect: config.aiAutoDetect,
 })
 
-// Helper to convert from legacy nested format to flat format
-export const migrateFromNestedConfig = (nested: {
-  credentials: { host: string; username: string; password: string }
-  ai?: { tool?: 'claude' | 'llm' | 'opencode' | 'gemini'; autoDetect?: boolean }
-}): AppConfig => ({
-  host: nested.credentials.host,
-  username: nested.credentials.username,
-  password: nested.credentials.password,
-  aiTool: nested.ai?.tool,
-  aiAutoDetect: nested.ai?.autoDetect ?? true,
+// Schema for validating legacy nested config structure
+const LegacyNestedConfig = Schema.Struct({
+  credentials: Schema.Struct({
+    host: Schema.String.pipe(
+      Schema.pattern(/^https?:\/\/.+$/),
+      Schema.annotations({ description: 'Gerrit server URL' }),
+    ),
+    username: Schema.String.pipe(Schema.minLength(1)),
+    password: Schema.String.pipe(Schema.minLength(1)),
+  }),
+  ai: Schema.optional(
+    Schema.Struct({
+      tool: Schema.optional(Schema.Literal('claude', 'llm', 'opencode', 'gemini')),
+      autoDetect: Schema.optional(Schema.Boolean),
+    }),
+  ),
 })
+
+type LegacyNestedConfig = Schema.Schema.Type<typeof LegacyNestedConfig>
+
+// Helper to convert from legacy nested format to flat format with validation
+export const migrateFromNestedConfig = (nested: unknown): AppConfig => {
+  // Validate input structure using Schema
+  const validatedNested = Schema.decodeUnknownSync(LegacyNestedConfig)(nested)
+
+  // Convert to flat structure
+  const flatConfig = {
+    host: validatedNested.credentials.host,
+    username: validatedNested.credentials.username,
+    password: validatedNested.credentials.password,
+    aiTool: validatedNested.ai?.tool,
+    aiAutoDetect: validatedNested.ai?.autoDetect ?? true,
+  }
+
+  // Validate the resulting flat config
+  return Schema.decodeUnknownSync(AppConfig)(flatConfig)
+}
