@@ -74,6 +74,55 @@ interface InlineComment {
   }
 }
 
+// Helper to validate and fix AI-generated inline comments
+const validateAndFixInlineComments = (
+  comments: InlineComment[],
+  availableFiles: string[],
+): InlineComment[] => {
+  return comments.filter((comment) => {
+    // Skip comments with invalid line formats (like ":range")
+    if (!comment.line && !comment.range) {
+      console.warn(`Skipping comment with invalid line format: ${JSON.stringify(comment)}`)
+      return false
+    }
+
+    // Try to find the correct file path
+    let correctFilePath = comment.file
+
+    // If the file path doesn't exist exactly, try to find a match
+    if (!availableFiles.includes(comment.file)) {
+      // Look for files that end with the provided path
+      const matchingFiles = availableFiles.filter(
+        (file) => file.endsWith(comment.file) || file.includes(comment.file),
+      )
+
+      if (matchingFiles.length === 1) {
+        correctFilePath = matchingFiles[0]
+        console.log(`Fixed file path: ${comment.file} -> ${correctFilePath}`)
+      } else if (matchingFiles.length > 1) {
+        // Multiple matches, try to pick the most likely one
+        const exactMatch = matchingFiles.find((file) => file.endsWith(`/${comment.file}`))
+        if (exactMatch) {
+          correctFilePath = exactMatch
+          console.log(`Fixed file path (exact match): ${comment.file} -> ${correctFilePath}`)
+        } else {
+          console.warn(
+            `Multiple file matches for ${comment.file}: ${matchingFiles.join(', ')}. Skipping comment.`,
+          )
+          return false
+        }
+      } else {
+        console.warn(`File not found in change: ${comment.file}. Skipping comment.`)
+        return false
+      }
+    }
+
+    // Update the comment with the correct file path
+    comment.file = correctFilePath
+    return true
+  })
+}
+
 // Helper to get change data and format as XML string
 const getChangeDataAsXml = (changeId: string): Effect.Effect<string, ApiError, GerritApiService> =>
   Effect.gen(function* () {
@@ -347,6 +396,22 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
       return yield* Effect.fail(new Error('Invalid inline comments format'))
     }
 
+    // Get available files for validation
+    const gerritApi = yield* GerritApiService
+    const files = yield* gerritApi.getFiles(changeId)
+    const availableFiles = Object.keys(files)
+
+    // Validate and fix inline comments
+    const originalCount = inlineComments.length
+    inlineComments = validateAndFixInlineComments(inlineComments, availableFiles)
+    const validCount = inlineComments.length
+
+    if (originalCount > validCount) {
+      yield* Console.log(
+        `→ Filtered ${originalCount - validCount} invalid comments, ${validCount} remain`,
+      )
+    }
+
     // If not in comment mode, just output the inline comments
     if (!options.comment) {
       if (inlineComments.length > 0) {
@@ -374,22 +439,26 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
           : yield* promptUser('\nPost these inline comments to Gerrit?')
 
         if (shouldPost) {
-          // Post inline comments using the new direct input method
-          yield* pipe(
-            commentCommandWithInput(changeId, JSON.stringify(inlineComments), { batch: true }),
-            Effect.catchAll((error) =>
-              Effect.gen(function* () {
-                yield* Console.error(`✗ Failed to post inline comments: ${error}`)
-                return yield* Effect.fail(error)
-              }),
-            ),
-          )
-          yield* Console.log(`✓ Inline comments posted for ${changeId}`)
+          if (inlineComments.length === 0) {
+            yield* Console.log('→ No valid comments to post after validation')
+          } else {
+            // Post inline comments using the new direct input method
+            yield* pipe(
+              commentCommandWithInput(changeId, JSON.stringify(inlineComments), { batch: true }),
+              Effect.catchAll((error) =>
+                Effect.gen(function* () {
+                  yield* Console.error(`✗ Failed to post inline comments: ${error}`)
+                  return yield* Effect.fail(error)
+                }),
+              ),
+            )
+            yield* Console.log(`✓ Inline comments posted for ${changeId}`)
+          }
         } else {
           yield* Console.log('→ Inline comments not posted')
         }
       } else {
-        yield* Console.log('\n→ No inline comments to post')
+        yield* Console.log('\n→ No valid inline comments to post')
       }
     }
 

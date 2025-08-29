@@ -70,11 +70,16 @@ describe('Review Command', () => {
       getComments: () => Effect.succeed({} as Record<string, CommentInfo[]>),
       getMessages: () => Effect.succeed([] as MessageInfo[]),
       listChanges: () => Effect.fail({ _tag: 'ApiError' as const, message: 'Not implemented' }),
-      postReview: () => Effect.succeed(undefined as void),
+      postReview: mock(() => Effect.succeed(undefined as void)),
       abandonChange: () => Effect.fail({ _tag: 'ApiError' as const, message: 'Not implemented' }),
       testConnection: Effect.succeed(true),
       getRevision: () => Effect.fail({ _tag: 'ApiError' as const, message: 'Not implemented' }),
-      getFiles: () => Effect.fail({ _tag: 'ApiError' as const, message: 'Not implemented' }),
+      getFiles: () =>
+        Effect.succeed({
+          'src/main.ts': { status: 'M' as const },
+          'app/controllers/users_controller.rb': { status: 'M' as const },
+          'lib/utils/helper.rb': { status: 'A' as const },
+        }),
       getFileDiff: () => Effect.fail({ _tag: 'ApiError' as const, message: 'Not implemented' }),
       getFileContent: () => Effect.fail({ _tag: 'ApiError' as const, message: 'Not implemented' }),
       getPatch: () => Effect.fail({ _tag: 'ApiError' as const, message: 'Not implemented' }),
@@ -569,6 +574,48 @@ describe('Review Command', () => {
 
     // Should use default review prompt
     expect(capturedPrompt).toContain('Code Review Guidelines')
+  })
+
+  test('should validate and fix inline comment file paths', async () => {
+    const aiService = {
+      detectAiTool: () => Effect.succeed('claude'),
+      extractResponseTag: (output: string) => Effect.succeed(output),
+      runPrompt: (prompt: string, input: string) => {
+        if (prompt.includes('JSON Structure for Inline Comments')) {
+          // Return comments with incomplete file paths that need fixing
+          return Effect.succeed(
+            JSON.stringify([
+              {
+                file: 'users_controller.rb',
+                line: 10,
+                message: '🤖 Test comment with incomplete path',
+              },
+              {
+                file: 'app/controllers/users_controller.rb',
+                line: 20,
+                message: '🤖 Test comment with complete path',
+              },
+              { file: 'nonexistent.rb', line: 30, message: '🤖 Test comment for nonexistent file' },
+              { file: 'helper.rb', line: 40, message: '🤖 Test comment with partial path' },
+            ]),
+          )
+        }
+        return Effect.succeed('Overall review comment')
+      },
+    }
+
+    const result = await Effect.runPromiseExit(
+      reviewCommand('12345', { comment: true, yes: true }).pipe(
+        Effect.provide(Layer.succeed(AiService, aiService)),
+        Effect.provide(Layer.succeed(GerritApiService, mockApiService)),
+        Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
+      ),
+    )
+
+    expect(result._tag).toBe('Success')
+
+    // Verify that the postReview was called (meaning some comments were valid after validation)
+    expect(mockApiService.postReview).toHaveBeenCalled()
   })
 
   test('should combine custom prompt with system prompts correctly', async () => {

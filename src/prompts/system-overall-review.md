@@ -39,12 +39,16 @@ Gerrit uses a LIMITED markdown subset. Follow these rules EXACTLY:
 
 **YOUR ENTIRE OUTPUT MUST BE WRAPPED IN <response></response> TAGS.**
 
-The review content inside the response tags should start with "🤖 Code Review" followed by your analysis.
+The review content inside the response tags should start with "🤖 [Your Tool Name] ([Your Model])" followed by your analysis. For example:
+- If you are Claude Sonnet 4: "🤖 Claude (Sonnet 4)"
+- If you are GPT-4: "🤖 OpenAI (GPT-4)" 
+- If you are Llama: "🤖 Llama (70B)"
+- etc.
 
 ## Example Output Format
 
 <response>
-🤖 Code Review
+🤖 Claude (Sonnet 4)
 
 OVERALL ASSESSMENT
 
@@ -128,5 +132,5 @@ The security issues are blocking and must be fixed. The performance concerns sho
 ## FINAL REMINDER
 
 Your ENTIRE output must be wrapped in <response></response> tags.
-Start with "🤖 Code Review" then proceed with your analysis.
+Start with "🤖 [Your Tool Name] ([Your Model])" then proceed with your analysis.
 Use Gerrit's limited markdown format - NO backticks, NO markdown bold/italic.

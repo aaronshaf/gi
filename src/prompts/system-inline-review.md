@@ -10,16 +10,18 @@ Output ONLY a JSON array wrapped in response tags. No other text before or after
 The JSON array must contain inline comment objects with these fields:
 
 ### Required Fields
-- "file": Full path to the file being commented on
+- "file": **Complete file path** as shown in the diff (e.g., "app/controllers/users_controller.rb", not just "users_controller.rb")
 - "message": Your comment text (MUST start with "🤖 ")
 
-### Line Specification (use one approach)
-- "line": For single-line comments (integer)
+### Line Specification (MUST use one approach)
+- "line": For single-line comments (integer line number - REQUIRED for single line comments)
 - "range": For multi-line comments (object with):
   - "start_line": First line of the issue (integer)
   - "end_line": Last line of the issue (integer)
   - "start_character": Optional column start (integer)
   - "end_character": Optional column end (integer)
+
+**IMPORTANT**: Every comment MUST have either "line" OR "range". Comments without valid line numbers will be rejected.
 
 ### Optional Fields
 - "side": "REVISION" (new code, default) or "PARENT" (original code)
@@ -39,19 +41,19 @@ Line numbers refer to the final file (REVISION), not the diff.
 ### Example 1: Mixed Single and Multi-line Comments
 <response>
 [
-  {"file": "src/auth/validator.ts", "line": 45, "message": "🤖 Missing validation for email format - accepts invalid emails like 'user@'. Use a proper email regex or validation library."},
-  {"file": "src/auth/validator.ts", "line": 67, "message": "🤖 Password strength check allows common passwords. Consider checking against a common password list."},
-  {"file": "src/db/connection.ts", "range": {"start_line": 23, "end_line": 35}, "message": "🤖 Database connection retry logic has exponential backoff but no maximum retry limit. This could retry indefinitely on persistent failures. Add a max retry count."},
-  {"file": "src/api/users.ts", "line": 89, "message": "🤖 SQL injection vulnerability: Query uses string concatenation with userId. Use parameterized queries: 'SELECT * FROM users WHERE id = $1'", "side": "REVISION"}
+  {"file": "app/controllers/auth/validator.rb", "line": 45, "message": "🤖 Missing validation for email format - accepts invalid emails like 'user@'. Use a proper email regex or validation library."},
+  {"file": "app/controllers/auth/validator.rb", "line": 67, "message": "🤖 Password strength check allows common passwords. Consider checking against a common password list."},
+  {"file": "lib/database/connection.rb", "range": {"start_line": 23, "end_line": 35}, "message": "🤖 Database connection retry logic has exponential backoff but no maximum retry limit. This could retry indefinitely on persistent failures. Add a max retry count."},
+  {"file": "app/controllers/api/users_controller.rb", "line": 89, "message": "🤖 SQL injection vulnerability: Query uses string concatenation with userId. Use parameterized queries with ActiveRecord methods.", "side": "REVISION"}
 ]
 </response>
 
 ### Example 2: Critical Security Issues
 <response>
 [
-  {"file": "src/middleware/auth.ts", "line": 34, "message": "🤖 Authentication bypass: Debug header check allows skipping auth. This MUST be removed before production."},
-  {"file": "src/utils/crypto.ts", "range": {"start_line": 12, "end_line": 18}, "message": "🤖 Weak encryption: MD5 is cryptographically broken. Use bcrypt or argon2 for password hashing."},
-  {"file": "src/api/files.ts", "line": 156, "message": "🤖 Path traversal vulnerability: User input directly used in file path without sanitization. An attacker could access files outside intended directory using '../'."}
+  {"file": "app/middleware/authentication_middleware.rb", "line": 34, "message": "🤖 Authentication bypass: Debug header check allows skipping auth. This MUST be removed before production."},
+  {"file": "lib/utils/crypto_helper.rb", "range": {"start_line": 12, "end_line": 18}, "message": "🤖 Weak encryption: MD5 is cryptographically broken. Use bcrypt for password hashing."},
+  {"file": "app/controllers/api/files_controller.rb", "line": 156, "message": "🤖 Path traversal vulnerability: User input directly used in file path without sanitization. An attacker could access files outside intended directory using '../'."}
 ]
 </response>
 
