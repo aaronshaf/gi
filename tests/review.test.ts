@@ -271,6 +271,55 @@ describe('Review Command', () => {
     expect(capturedXmlData).toContain('<number>12345</number>')
   })
 
+  test('should display review without posting when --comment flag is not present', async () => {
+    const result = await Effect.runPromise(
+      Effect.either(
+        reviewCommand('12345', {}).pipe(
+          Effect.provide(Layer.succeed(AiService, mockAiService)),
+          Effect.provide(Layer.succeed(GerritApiService, mockApiService)),
+          Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
+        ),
+      ),
+    )
+
+    expect(result._tag).toBe('Right')
+
+    // Check that it displays the reviews but doesn't post
+    expect(consoleSpy.log).toHaveBeenCalledWith(
+      expect.stringContaining('━━━━━━ INLINE COMMENTS ━━━━━━'),
+    )
+    expect(consoleSpy.log).toHaveBeenCalledWith(
+      expect.stringContaining('━━━━━━ OVERALL REVIEW ━━━━━━'),
+    )
+
+    // Verify it doesn't post
+    expect(consoleSpy.log).not.toHaveBeenCalledWith('✓ Inline comments posted for 12345')
+    expect(consoleSpy.log).not.toHaveBeenCalledWith('✓ Overall review posted for 12345')
+  })
+
+  test('should handle error during comment posting', async () => {
+    // Create a failing API service
+    const failingApiService = {
+      ...mockApiService,
+      postReview: () => Effect.fail({ _tag: 'ApiError' as const, message: 'Network error' }),
+    }
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        reviewCommand('12345', { comment: true, yes: true }).pipe(
+          Effect.provide(Layer.succeed(AiService, mockAiService)),
+          Effect.provide(Layer.succeed(GerritApiService, failingApiService)),
+          Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
+        ),
+      ),
+    )
+
+    expect(result._tag).toBe('Left')
+    expect(consoleSpy.error).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to post inline comments'),
+    )
+  })
+
   test('should format change data as pretty text for overall review', async () => {
     let capturedPrettyData: string | undefined
 

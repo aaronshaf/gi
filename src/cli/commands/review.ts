@@ -1,6 +1,6 @@
 import { Effect, pipe } from 'effect'
 import { AiService } from '@/services/ai'
-import { commentCommand } from './comment'
+import { commentCommandWithInput } from './comment'
 import { Console } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
 import type { CommentInfo, MessageInfo } from '@/schemas/gerrit'
@@ -15,6 +15,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
+import * as readline from 'node:readline'
 
 // Get the directory of this module
 const __filename = fileURLToPath(import.meta.url)
@@ -60,6 +61,19 @@ interface ReviewOptions {
   dryRun?: boolean
   comment?: boolean
   yes?: boolean
+}
+
+interface InlineComment {
+  file: string
+  line?: number
+  message: string
+  side?: string
+  range?: {
+    start_line: number
+    end_line: number
+    start_character?: number
+    end_character?: number
+  }
 }
 
 // Helper to get change data and format as XML string
@@ -249,7 +263,6 @@ const getChangeDataAsPretty = (
 // Helper function to prompt user for confirmation
 const promptUser = (message: string): Effect.Effect<boolean, never> =>
   Effect.async<boolean, never>((resume) => {
-    const readline = require('readline')
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -323,13 +336,13 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
     }
 
     // Parse JSON array from response
-    let inlineComments: any[]
+    let inlineComments: InlineComment[]
     try {
-      inlineComments = JSON.parse(inlineResponse)
+      inlineComments = JSON.parse(inlineResponse) as InlineComment[]
       if (!Array.isArray(inlineComments)) {
         throw new Error('Response is not an array')
       }
-    } catch (error) {
+    } catch (error: unknown) {
       yield* Console.error(`✗ Failed to parse inline comments JSON: ${error}`)
       if (!options.debug) {
         yield* Console.error('Run with --debug to see raw AI output')
@@ -364,31 +377,13 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
           : yield* promptUser('\nPost these inline comments to Gerrit?')
 
         if (shouldPost) {
-          // Write comments to stdin and post using batch comment
-          const originalStdin = process.stdin
-          const { Readable } = require('stream')
-          const stdinStream = new Readable()
-          stdinStream.push(JSON.stringify(inlineComments))
-          stdinStream.push(null)
-          Object.defineProperty(process, 'stdin', {
-            value: stdinStream,
-            configurable: true,
-          })
-
+          // Post inline comments using the new direct input method
           yield* pipe(
-            commentCommand(changeId, { batch: true }),
+            commentCommandWithInput(changeId, JSON.stringify(inlineComments), { batch: true }),
             Effect.catchAll((error) =>
               Effect.gen(function* () {
                 yield* Console.error(`✗ Failed to post inline comments: ${error}`)
                 return yield* Effect.fail(error)
-              }),
-            ),
-            Effect.ensuring(
-              Effect.sync(() => {
-                Object.defineProperty(process, 'stdin', {
-                  value: originalStdin,
-                  configurable: true,
-                })
               }),
             ),
           )
@@ -447,31 +442,13 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
         : yield* promptUser('\nPost this overall review to Gerrit?')
 
       if (shouldPost) {
-        // Post overall comment
-        const originalStdin = process.stdin
-        const { Readable } = require('stream')
-        const stdinStream = new Readable()
-        stdinStream.push(overallResponse)
-        stdinStream.push(null)
-        Object.defineProperty(process, 'stdin', {
-          value: stdinStream,
-          configurable: true,
-        })
-
+        // Post overall comment using the new direct input method
         yield* pipe(
-          commentCommand(changeId, {}),
+          commentCommandWithInput(changeId, overallResponse, {}),
           Effect.catchAll((error) =>
             Effect.gen(function* () {
               yield* Console.error(`✗ Failed to post review comment: ${error}`)
               return yield* Effect.fail(error)
-            }),
-          ),
-          Effect.ensuring(
-            Effect.sync(() => {
-              Object.defineProperty(process, 'stdin', {
-                value: originalStdin,
-                configurable: true,
-              })
             }),
           ),
         )

@@ -128,6 +128,44 @@ const buildBatchReview = (batchInput: BatchCommentInput): ReviewInput => {
 }
 
 // Create ReviewInput based on options
+export const createReviewInputFromString = (
+  content: string,
+  options: CommentOptions,
+): Effect.Effect<ReviewInput, Error> => {
+  // Batch mode with provided content
+  if (options.batch) {
+    return pipe(
+      parseJson(content),
+      Effect.flatMap(
+        Schema.decodeUnknown(BatchCommentSchema, {
+          errors: 'all',
+          onExcessProperty: 'ignore',
+        }),
+      ),
+      Effect.mapError((error) => {
+        let errorMessage = 'Invalid batch input format.\n'
+        if (ParseResult.isParseError(error)) {
+          errorMessage += TreeFormatter.formatErrorSync(error)
+          errorMessage += '\n\nExpected format: [{"file": "...", "line": ..., "message": "..."}]'
+        } else if (error instanceof Error) {
+          errorMessage += error.message
+        } else {
+          errorMessage +=
+            'Expected: [{"file": "...", "line": ..., "message": "...", "side"?: "PARENT|REVISION", "range"?: {...}}]'
+        }
+        return new Error(errorMessage)
+      }),
+      Effect.map(buildBatchReview),
+    )
+  }
+
+  // Overall comment with provided content
+  const message = content.trim()
+  return message.length > 0
+    ? Effect.succeed({ message })
+    : Effect.fail(new Error('Message is required'))
+}
+
 const createReviewInput = (options: CommentOptions): Effect.Effect<ReviewInput, Error> => {
   // Batch mode
   if (options.batch) {
@@ -196,6 +234,77 @@ const createReviewInput = (options: CommentOptions): Effect.Effect<ReviewInput, 
     ),
   )
 }
+
+// Export a version that accepts direct input instead of reading stdin
+export const commentCommandWithInput = (
+  changeId: string,
+  input: string,
+  options: CommentOptions,
+): Effect.Effect<void, ApiError | Error, GerritApiService> =>
+  Effect.gen(function* () {
+    const apiService = yield* GerritApiService
+
+    // Build the review input from provided string
+    const review = yield* createReviewInputFromString(input, options)
+
+    // Execute the API calls in sequence
+    const change = yield* pipe(
+      apiService.getChange(changeId),
+      Effect.mapError((error) =>
+        error._tag === 'ApiError' ? new Error(`Failed to get change: ${error.message}`) : error,
+      ),
+    )
+
+    yield* pipe(
+      apiService.postReview(changeId, review),
+      Effect.mapError((error) => {
+        if (error._tag === 'ApiError') {
+          // Build detailed error context for batch comments
+          if (options.batch && review.comments) {
+            const commentDetails = Object.entries(review.comments)
+              .flatMap(([file, comments]) =>
+                comments.map((comment) => {
+                  const parts = [`${file}:${comment.line || 'range'}`]
+                  if (comment.message?.length > 50) {
+                    parts.push(`"${comment.message.slice(0, 50)}..."`)
+                  } else {
+                    parts.push(`"${comment.message}"`)
+                  }
+                  return parts.join(' ')
+                }),
+              )
+              .join(', ')
+
+            return new Error(
+              `Failed to post comment: ${error.message}\nTried to post: ${commentDetails}`,
+            )
+          }
+
+          // Single line comment context
+          if (options.file && options.line) {
+            return new Error(
+              `Failed to post comment: ${error.message}\nTried to post to ${options.file}:${options.line}: "${options.message}"`,
+            )
+          }
+
+          // Overall comment context
+          if (options.message) {
+            const msg =
+              options.message.length > 50 ? `${options.message.slice(0, 50)}...` : options.message
+            return new Error(
+              `Failed to post comment: ${error.message}\nTried to post overall comment: "${msg}"`,
+            )
+          }
+
+          return new Error(`Failed to post comment: ${error.message}`)
+        }
+        return error
+      }),
+    )
+
+    // Format and display output
+    yield* formatOutput(change, review, options, changeId)
+  })
 
 export const commentCommand = (
   changeId: string,
