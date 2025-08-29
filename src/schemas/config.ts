@@ -4,7 +4,6 @@ import { GerritCredentials } from './gerrit'
 // AI Configuration Schema
 export const AiConfig = Schema.Struct({
   tool: Schema.optional(Schema.Literal('claude', 'llm', 'opencode', 'gemini')),
-  reviewPromptPath: Schema.optional(Schema.String),
   autoDetect: Schema.optionalWith(Schema.Boolean, { default: () => true }),
 })
 

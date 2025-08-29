@@ -1,7 +1,6 @@
-import { Context, Data, Effect, Layer, pipe } from 'effect'
+import { Context, Data, Effect, Layer } from 'effect'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { ConfigService } from './config'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -14,19 +13,6 @@ const expandTilde = (filePath: string): string => {
     return path.join(os.homedir(), filePath.slice(2))
   }
   return filePath
-}
-
-// Helper to read prompt file
-const readPromptFile = (filePath: string): string | null => {
-  try {
-    const expanded = expandTilde(filePath)
-    if (fs.existsSync(expanded)) {
-      return fs.readFileSync(expanded, 'utf8')
-    }
-  } catch {
-    // Ignore errors
-  }
-  return null
 }
 
 // Error types

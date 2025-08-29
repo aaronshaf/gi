@@ -8,29 +8,8 @@ import {
 } from '@/services/config'
 import type { GerritCredentials } from '@/schemas/gerrit'
 import type { AiConfig, AppConfig } from '@/schemas/config'
-import { input, password, select, confirm } from '@inquirer/prompts'
-import * as fs from 'node:fs'
-import * as os from 'node:os'
-import * as path from 'node:path'
+import { input, password } from '@inquirer/prompts'
 import { spawn } from 'node:child_process'
-
-// Helper to expand tilde in file paths
-const expandTilde = (filePath: string): string => {
-  if (filePath.startsWith('~/')) {
-    return path.join(os.homedir(), filePath.slice(2))
-  }
-  return filePath
-}
-
-// Helper to validate file exists
-const validateFilePath = (filePath: string): string | null => {
-  if (!filePath) return null
-  const expanded = expandTilde(filePath)
-  if (fs.existsSync(expanded)) {
-    return filePath // Return original path with tilde
-  }
-  return null
-}
 
 // Check if a command exists on the system
 const checkCommandExists = (command: string): Promise<boolean> =>
@@ -175,31 +154,6 @@ const setupEffect = (configService: ConfigServiceImpl) =>
                 default: defaultCommand || 'claude',
               })
 
-              // Custom review prompt
-              let reviewPromptPath = await input({
-                message: 'Path to custom review prompt file (optional, e.g., ~/prompts/review.md)',
-                default: existingConfig?.ai?.reviewPromptPath || '',
-              })
-
-              // Validate review prompt file if provided
-              if (reviewPromptPath) {
-                const validated = validateFilePath(reviewPromptPath)
-                if (!validated) {
-                  console.log(chalk.red(`File not found: ${reviewPromptPath}`))
-                  reviewPromptPath = await input({
-                    message: 'Enter a valid path or press Enter to skip',
-                    default: '',
-                  })
-                  if (reviewPromptPath) {
-                    const secondValidation = validateFilePath(reviewPromptPath)
-                    if (!secondValidation) {
-                      console.log(chalk.yellow('Skipping custom review prompt file'))
-                      reviewPromptPath = ''
-                    }
-                  }
-                }
-              }
-
               const credentials: GerritCredentials = {
                 host: host.trim().replace(/\/$/, ''), // Remove trailing slash
                 username: username.trim(),
@@ -211,7 +165,6 @@ const setupEffect = (configService: ConfigServiceImpl) =>
                 ...(aiToolCommand && {
                   tool: aiToolCommand as 'claude' | 'llm' | 'opencode' | 'gemini',
                 }),
-                ...(reviewPromptPath && { reviewPromptPath }),
                 autoDetect: !aiToolCommand,
               }
 
