@@ -31,7 +31,6 @@ import { commentCommand } from './commands/comment'
 import { commentsCommand } from './commands/comments'
 import { diffCommand } from './commands/diff'
 import { incomingCommand } from './commands/incoming'
-import { initCommand } from './commands/init'
 import { mineCommand } from './commands/mine'
 import { openCommand } from './commands/open'
 import { reviewCommand } from './commands/review'
@@ -367,6 +366,7 @@ program
   .option('--comment', 'Post the review as comments (prompts for confirmation)')
   .option('-y, --yes', 'Skip confirmation prompts when posting comments')
   .option('--debug', 'Show debug output including AI responses')
+  .option('--prompt <file>', 'Path to custom review prompt file (e.g., ~/prompts/review.md)')
   .addHelpText(
     'after',
     `
@@ -404,6 +404,7 @@ Examples:
         comment: options.comment,
         yes: options.yes,
         debug: options.debug,
+        prompt: options.prompt,
       }).pipe(
         Effect.provide(AiServiceLive),
         Effect.provide(GerritApiServiceLive),

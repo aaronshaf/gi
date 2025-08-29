@@ -1,34 +1,10 @@
-import { Effect, Layer, pipe } from 'effect'
+import { Effect, Layer } from 'effect'
 import { AiService, AiServiceError, NoAiToolFoundError, AiResponseParseError } from './ai'
 import { ConfigService, ConfigServiceLive } from './config'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import * as fs from 'node:fs'
-import * as os from 'node:os'
-import * as path from 'node:path'
 
 const execAsync = promisify(exec)
-
-// Helper to expand tilde in file paths
-const expandTilde = (filePath: string): string => {
-  if (filePath.startsWith('~/')) {
-    return path.join(os.homedir(), filePath.slice(2))
-  }
-  return filePath
-}
-
-// Helper to read prompt file
-const readPromptFile = (filePath: string): string | null => {
-  try {
-    const expanded = expandTilde(filePath)
-    if (fs.existsSync(expanded)) {
-      return fs.readFileSync(expanded, 'utf8')
-    }
-  } catch {
-    // Ignore errors
-  }
-  return null
-}
 
 // Enhanced AI Service that uses configuration
 export const AiServiceEnhanced = Layer.effect(
@@ -105,29 +81,10 @@ export const AiServiceEnhanced = Layer.effect(
 
     const runPrompt = (prompt: string, input: string) =>
       Effect.gen(function* () {
-        // Check for custom prompt file overrides
-        const aiConfig = yield* configService.getAiConfig.pipe(
-          Effect.orElseSucceed(() => ({ autoDetect: true })),
-        )
-
-        // Use custom prompt if configured and this is a review prompt
-        let actualPrompt = prompt
-        if (
-          prompt.includes('Code Review Instructions') &&
-          'reviewPromptPath' in aiConfig &&
-          aiConfig.reviewPromptPath
-        ) {
-          const customPrompt = readPromptFile(aiConfig.reviewPromptPath)
-          if (customPrompt) {
-            actualPrompt = customPrompt
-            yield* Effect.logInfo(`Using custom review prompt from ${aiConfig.reviewPromptPath}`)
-          }
-        }
-
         const tool = yield* detectAiTool()
 
         // Prepare the command based on the tool
-        const fullInput = `${actualPrompt}\n\n${input}`
+        const fullInput = `${prompt}\n\n${input}`
         let command: string
 
         switch (tool) {

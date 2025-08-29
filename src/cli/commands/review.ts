@@ -3,11 +3,9 @@ import { AiService } from '@/services/ai'
 import { commentCommandWithInput } from './comment'
 import { Console } from 'effect'
 import { type ApiError, GerritApiService } from '@/api/gerrit'
-import type { CommentInfo, MessageInfo } from '@/schemas/gerrit'
-import { getDiffContext } from '@/utils/diff-context'
+import type { CommentInfo } from '@/schemas/gerrit'
 import { sanitizeCDATA, escapeXML } from '@/utils/shell-safety'
 import { formatDiffPretty } from '@/utils/diff-formatters'
-import { formatCommentsPretty } from '@/utils/comment-formatters'
 import { formatDate } from '@/utils/formatters'
 import { ConfigService } from '@/services/config'
 import * as fs from 'node:fs'
@@ -61,6 +59,7 @@ interface ReviewOptions {
   dryRun?: boolean
   comment?: boolean
   yes?: boolean
+  prompt?: string
 }
 
 interface InlineComment {
@@ -277,8 +276,6 @@ const promptUser = (message: string): Effect.Effect<boolean, never> =>
 export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
   Effect.gen(function* () {
     const aiService = yield* AiService
-    const gerritApi = yield* GerritApiService
-    const configService = yield* ConfigService
 
     // Check for AI tool availability first
     yield* Console.log('→ Checking for AI tool availability...')
@@ -287,16 +284,17 @@ export const reviewCommand = (changeId: string, options: ReviewOptions = {}) =>
       .pipe(Effect.catchTag('NoAiToolFoundError', (error) => Effect.fail(new Error(error.message))))
     yield* Console.log(`✓ Found AI tool: ${aiTool}`)
 
-    // Load custom review prompt from config if available
-    const config = yield* configService.getAiConfig.pipe(Effect.orElseSucceed(() => null))
-
+    // Load custom review prompt if provided via --prompt option
     let userReviewPrompt = DEFAULT_REVIEW_PROMPT
 
-    if (config?.reviewPromptPath) {
-      const customPrompt = readPromptFile(config.reviewPromptPath)
+    if (options.prompt) {
+      const customPrompt = readPromptFile(options.prompt)
       if (customPrompt) {
         userReviewPrompt = customPrompt
-        yield* Console.log(`✓ Using custom review prompt from ${config.reviewPromptPath}`)
+        yield* Console.log(`✓ Using custom review prompt from ${options.prompt}`)
+      } else {
+        yield* Console.log(`⚠ Could not read custom prompt file: ${options.prompt}`)
+        yield* Console.log('→ Using default review prompt')
       }
     }
 

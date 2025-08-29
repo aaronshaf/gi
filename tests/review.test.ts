@@ -358,4 +358,265 @@ describe('Review Command', () => {
     expect(capturedPrettyData).toContain('Branch: master')
     expect(capturedPrettyData).toContain('Status: NEW')
   })
+
+  test('should use custom prompt file when --prompt option is provided', async () => {
+    const customPromptContent = 'Custom prompt for testing\n\nSpecial instructions here.'
+    const tempDir = require('os').tmpdir()
+    const tempFile = require('path').join(tempDir, `test-prompt-${Date.now()}.md`)
+
+    // Create temporary prompt file
+    require('fs').writeFileSync(tempFile, customPromptContent, 'utf8')
+
+    let capturedPrompt: string | undefined
+
+    const captureService = {
+      detectAiTool: () => Effect.succeed('claude'),
+      extractResponseTag: (output: string) => Effect.succeed(output),
+      runPrompt: (prompt: string, input: string) => {
+        capturedPrompt = prompt
+        if (prompt.includes('JSON Structure for Inline Comments')) {
+          return Effect.succeed('[]')
+        } else {
+          return Effect.succeed('🤖 Custom Review\n\nOVERALL ASSESSMENT\n\nUsed custom prompt.')
+        }
+      },
+    }
+
+    try {
+      const result = await Effect.runPromise(
+        Effect.either(
+          reviewCommand('12345', { prompt: tempFile }).pipe(
+            Effect.provide(Layer.succeed(AiService, captureService)),
+            Effect.provide(Layer.succeed(GerritApiService, mockApiService)),
+            Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
+          ),
+        ),
+      )
+
+      expect(result._tag).toBe('Right')
+
+      // Check that custom prompt was loaded
+      expect(consoleSpy.log).toHaveBeenCalledWith(`✓ Using custom review prompt from ${tempFile}`)
+
+      // Verify the custom prompt content was used
+      expect(capturedPrompt).toContain(customPromptContent)
+    } finally {
+      // Clean up temporary file
+      require('fs').unlinkSync(tempFile)
+    }
+  })
+
+  test('should expand tilde (~/) in prompt file paths', async () => {
+    const customPromptContent = 'Home directory prompt test'
+    const homeDir = require('os').homedir()
+    const relativeFileName = `.test-prompt-${Date.now()}.md`
+    const absolutePath = require('path').join(homeDir, relativeFileName)
+    const tildePath = `~/${relativeFileName}`
+
+    // Create prompt file in home directory
+    require('fs').writeFileSync(absolutePath, customPromptContent, 'utf8')
+
+    let capturedPrompt: string | undefined
+
+    const captureService = {
+      detectAiTool: () => Effect.succeed('claude'),
+      extractResponseTag: (output: string) => Effect.succeed(output),
+      runPrompt: (prompt: string, input: string) => {
+        capturedPrompt = prompt
+        if (prompt.includes('JSON Structure for Inline Comments')) {
+          return Effect.succeed('[]')
+        } else {
+          return Effect.succeed('🤖 Home Prompt Review')
+        }
+      },
+    }
+
+    try {
+      const result = await Effect.runPromise(
+        Effect.either(
+          reviewCommand('12345', { prompt: tildePath }).pipe(
+            Effect.provide(Layer.succeed(AiService, captureService)),
+            Effect.provide(Layer.succeed(GerritApiService, mockApiService)),
+            Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
+          ),
+        ),
+      )
+
+      expect(result._tag).toBe('Right')
+
+      // Check that tilde path was correctly expanded and file was loaded
+      expect(consoleSpy.log).toHaveBeenCalledWith(`✓ Using custom review prompt from ${tildePath}`)
+      expect(capturedPrompt).toContain(customPromptContent)
+    } finally {
+      // Clean up
+      require('fs').unlinkSync(absolutePath)
+    }
+  })
+
+  test('should fallback to default prompt when custom prompt file is missing', async () => {
+    const nonExistentFile = '/tmp/does-not-exist-prompt.md'
+
+    let capturedPrompt: string | undefined
+
+    const captureService = {
+      detectAiTool: () => Effect.succeed('claude'),
+      extractResponseTag: (output: string) => Effect.succeed(output),
+      runPrompt: (prompt: string, input: string) => {
+        capturedPrompt = prompt
+        if (prompt.includes('JSON Structure for Inline Comments')) {
+          return Effect.succeed('[]')
+        } else {
+          return Effect.succeed('🤖 Default Review')
+        }
+      },
+    }
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        reviewCommand('12345', { prompt: nonExistentFile }).pipe(
+          Effect.provide(Layer.succeed(AiService, captureService)),
+          Effect.provide(Layer.succeed(GerritApiService, mockApiService)),
+          Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
+        ),
+      ),
+    )
+
+    expect(result._tag).toBe('Right')
+
+    // Check that error was logged but execution continued
+    expect(consoleSpy.log).toHaveBeenCalledWith(
+      `⚠ Could not read custom prompt file: ${nonExistentFile}`,
+    )
+    expect(consoleSpy.log).toHaveBeenCalledWith('→ Using default review prompt')
+
+    // Verify default prompt was used (should not contain custom content)
+    expect(capturedPrompt).toContain('Code Review Guidelines')
+  })
+
+  test('should handle permission errors gracefully for custom prompt files', async () => {
+    const restrictedDir = '/root' // Directory that typically has restricted permissions
+    const restrictedFile = `${restrictedDir}/test-prompt.md`
+
+    let capturedPrompt: string | undefined
+
+    const captureService = {
+      detectAiTool: () => Effect.succeed('claude'),
+      extractResponseTag: (output: string) => Effect.succeed(output),
+      runPrompt: (prompt: string, input: string) => {
+        capturedPrompt = prompt
+        if (prompt.includes('JSON Structure for Inline Comments')) {
+          return Effect.succeed('[]')
+        } else {
+          return Effect.succeed('🤖 Default Review')
+        }
+      },
+    }
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        reviewCommand('12345', { prompt: restrictedFile }).pipe(
+          Effect.provide(Layer.succeed(AiService, captureService)),
+          Effect.provide(Layer.succeed(GerritApiService, mockApiService)),
+          Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
+        ),
+      ),
+    )
+
+    expect(result._tag).toBe('Right')
+
+    // Should fallback gracefully without crashing
+    expect(consoleSpy.log).toHaveBeenCalledWith(
+      `⚠ Could not read custom prompt file: ${restrictedFile}`,
+    )
+    expect(consoleSpy.log).toHaveBeenCalledWith('→ Using default review prompt')
+  })
+
+  test('should work normally without --prompt option (default behavior)', async () => {
+    let capturedPrompt: string | undefined
+
+    const captureService = {
+      detectAiTool: () => Effect.succeed('claude'),
+      extractResponseTag: (output: string) => Effect.succeed(output),
+      runPrompt: (prompt: string, input: string) => {
+        capturedPrompt = prompt
+        if (prompt.includes('JSON Structure for Inline Comments')) {
+          return Effect.succeed('[]')
+        } else {
+          return Effect.succeed('🤖 Default Review')
+        }
+      },
+    }
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        reviewCommand('12345', {}).pipe(
+          Effect.provide(Layer.succeed(AiService, captureService)),
+          Effect.provide(Layer.succeed(GerritApiService, mockApiService)),
+          Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
+        ),
+      ),
+    )
+
+    expect(result._tag).toBe('Right')
+
+    // Should not show any custom prompt messages
+    expect(consoleSpy.log).not.toHaveBeenCalledWith(
+      expect.stringContaining('Using custom review prompt'),
+    )
+    expect(consoleSpy.log).not.toHaveBeenCalledWith(
+      expect.stringContaining('Could not read custom prompt file'),
+    )
+
+    // Should use default review prompt
+    expect(capturedPrompt).toContain('Code Review Guidelines')
+  })
+
+  test('should combine custom prompt with system prompts correctly', async () => {
+    const customPromptContent = 'CUSTOM: Focus on security issues\nAnd performance concerns'
+    const tempDir = require('os').tmpdir()
+    const tempFile = require('path').join(tempDir, `test-combine-prompt-${Date.now()}.md`)
+
+    require('fs').writeFileSync(tempFile, customPromptContent, 'utf8')
+
+    let inlinePromptCaptured: string | undefined
+    let overallPromptCaptured: string | undefined
+
+    const captureService = {
+      detectAiTool: () => Effect.succeed('claude'),
+      extractResponseTag: (output: string) => Effect.succeed(output),
+      runPrompt: (prompt: string, input: string) => {
+        if (prompt.includes('JSON Structure for Inline Comments')) {
+          inlinePromptCaptured = prompt
+          return Effect.succeed('[]')
+        } else {
+          overallPromptCaptured = prompt
+          return Effect.succeed('🤖 Combined Review')
+        }
+      },
+    }
+
+    try {
+      const result = await Effect.runPromise(
+        Effect.either(
+          reviewCommand('12345', { prompt: tempFile }).pipe(
+            Effect.provide(Layer.succeed(AiService, captureService)),
+            Effect.provide(Layer.succeed(GerritApiService, mockApiService)),
+            Effect.provide(Layer.succeed(ConfigService, createMockConfigService())),
+          ),
+        ),
+      )
+
+      expect(result._tag).toBe('Right')
+
+      // Both inline and overall prompts should contain custom content
+      expect(inlinePromptCaptured).toContain(customPromptContent)
+      expect(overallPromptCaptured).toContain(customPromptContent)
+
+      // Both should also contain their respective system prompts
+      expect(inlinePromptCaptured).toContain('JSON Structure for Inline Comments')
+      expect(overallPromptCaptured).toContain('Review Structure and Formatting')
+    } finally {
+      require('fs').unlinkSync(tempFile)
+    }
+  })
 })
