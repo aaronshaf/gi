@@ -84,18 +84,17 @@ describe('Config Service Simple Tests', () => {
 
     test('should validate full app config schema', () => {
       const validAppConfig: AppConfig = {
-        credentials: {
-          host: 'https://gerrit.example.com',
-          username: 'testuser',
-          password: 'testpass',
-        },
-        ai: {
-          autoDetect: true,
-        },
+        host: 'https://gerrit.example.com',
+        username: 'testuser',
+        password: 'testpass',
+        aiAutoDetect: true,
+        aiTool: 'claude',
       }
 
-      expect(validAppConfig.credentials.host).toBe('https://gerrit.example.com')
-      expect(validAppConfig.ai.autoDetect).toBe(true)
+      expect(validAppConfig.host).toBe('https://gerrit.example.com')
+      expect(validAppConfig.username).toBe('testuser')
+      expect(validAppConfig.aiAutoDetect).toBe(true)
+      expect(validAppConfig.aiTool).toBe('claude')
     })
   })
 })

@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer } from 'effect'
 import { GerritCredentials } from '@/schemas/gerrit'
-import { AiConfig, AppConfig } from '@/schemas/config'
+import { AiConfig, AppConfig, aiConfigFromFlat, migrateFromNestedConfig } from '@/schemas/config'
 
 export interface ConfigServiceImpl {
   readonly getCredentials: Effect.Effect<GerritCredentials, ConfigError>
@@ -33,7 +33,29 @@ const readFileConfig = (): unknown | null => {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const content = fs.readFileSync(CONFIG_FILE, 'utf8')
-      return JSON.parse(content)
+      const parsed = JSON.parse(content)
+
+      // Check if this is the old nested format and migrate if needed
+      if (parsed && typeof parsed === 'object' && 'credentials' in parsed) {
+        // Migrate from nested format to flat format
+        const migrated = migrateFromNestedConfig(
+          parsed as {
+            credentials: { host: string; username: string; password: string }
+            ai?: { tool?: 'claude' | 'llm' | 'opencode' | 'gemini'; autoDetect?: boolean }
+          },
+        )
+
+        // Save the migrated config immediately
+        try {
+          writeFileConfig(migrated)
+        } catch {
+          // If write fails, still return the migrated config
+        }
+
+        return migrated
+      }
+
+      return parsed
     }
   } catch {
     // Ignore errors
@@ -75,7 +97,7 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
         )
       }
 
-      // Parse as full config
+      // Parse as flat config
       const fullConfigResult = yield* Schema.decodeUnknown(AppConfig)(fileContent).pipe(
         Effect.mapError(() => new ConfigError({ message: 'Invalid configuration format' })),
       )
@@ -99,7 +121,11 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
 
     const getCredentials = Effect.gen(function* () {
       const config = yield* getFullConfig
-      return config.credentials
+      return {
+        host: config.host,
+        username: config.username,
+        password: config.password,
+      }
     })
 
     const saveCredentials = (credentials: GerritCredentials) =>
@@ -112,14 +138,22 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
         // Get existing config or create new one
         const existingConfig = yield* getFullConfig.pipe(
           Effect.orElseSucceed(
-            () => ({ credentials: validatedCredentials, ai: { autoDetect: true } }) as AppConfig,
+            () =>
+              ({
+                host: validatedCredentials.host,
+                username: validatedCredentials.username,
+                password: validatedCredentials.password,
+                aiAutoDetect: true,
+              }) as AppConfig,
           ),
         )
 
-        // Update credentials in config
+        // Update credentials in flat config
         const updatedConfig: AppConfig = {
           ...existingConfig,
-          credentials: validatedCredentials,
+          host: validatedCredentials.host,
+          username: validatedCredentials.username,
+          password: validatedCredentials.password,
         }
 
         yield* saveFullConfig(updatedConfig)
@@ -137,7 +171,7 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
 
     const getAiConfig = Effect.gen(function* () {
       const config = yield* getFullConfig
-      return config.ai || { autoDetect: true }
+      return aiConfigFromFlat(config)
     })
 
     const saveAiConfig = (aiConfig: AiConfig) =>
@@ -150,10 +184,11 @@ export const ConfigServiceLive: Layer.Layer<ConfigService, never, never> = Layer
         // Get existing config
         const existingConfig = yield* getFullConfig
 
-        // Update AI config
+        // Update AI config in flat structure
         const updatedConfig: AppConfig = {
           ...existingConfig,
-          ai: validatedAiConfig,
+          aiTool: validatedAiConfig.tool,
+          aiAutoDetect: validatedAiConfig.autoDetect,
         }
 
         yield* saveFullConfig(updatedConfig)

@@ -17,8 +17,11 @@ export const createMockConfigService = (
   getAiConfig: Effect.succeed(aiConfig),
   saveAiConfig: () => Effect.succeed(undefined as void),
   getFullConfig: Effect.succeed({
-    credentials,
-    ai: aiConfig,
+    host: credentials.host,
+    username: credentials.username,
+    password: credentials.password,
+    aiTool: aiConfig.tool,
+    aiAutoDetect: aiConfig.autoDetect ?? true,
   } as AppConfig),
   saveFullConfig: () => Effect.succeed(undefined as void),
 })
