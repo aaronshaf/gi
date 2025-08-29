@@ -1,19 +1,10 @@
 import { Context, Data, Effect, Layer } from 'effect'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
 const execAsync = promisify(exec)
-
-// Helper to expand tilde in file paths
-const expandTilde = (filePath: string): string => {
-  if (filePath.startsWith('~/')) {
-    return path.join(os.homedir(), filePath.slice(2))
-  }
-  return filePath
-}
 
 // Error types
 export class AiServiceError extends Data.TaggedError('AiServiceError')<{
